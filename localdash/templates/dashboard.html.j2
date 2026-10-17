@@ -445,9 +445,10 @@ function renderKpi(p, res, prev) {
 }
 function renderTable(p, res) {
   const cols = res.columns || [], rows = res.rows || [];
-  const numeric = cols.map((_, i) => rows.length > 0 && rows.every(r => r[i] == null || isNum(r[i])));
+  const idCol = cols.map(c => /(^|_)id$|^id_|(^|_)year$/i.test(c));
+  const numeric = cols.map((_, i) => !idCol[i] && rows.length > 0 && rows.every(r => r[i] == null || isNum(r[i])));
   const head = cols.map((c, i) => `<th class="${numeric[i] ? "num" : ""}">${esc(c)}</th>`).join("");
-  const body = rows.map(r => `<tr>${r.map((v, i) => `<td class="${numeric[i] ? "num" : ""}">${esc(cellText(v))}</td>`).join("")}</tr>`).join("");
+  const body = rows.map(r => `<tr>${r.map((v, i) => `<td class="${numeric[i] ? "num" : ""}">${esc(idCol[i] && v != null ? String(v) : cellText(v))}</td>`).join("")}</tr>`).join("");
   $(`[data-table="${p.id}"]`).innerHTML = rows.length
     ? `<div class="tbl-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${res.truncated ? `<div class="note">Showing first ${rows.length} rows</div>` : ""}`
     : `<div class="empty">No rows</div>`;

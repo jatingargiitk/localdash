@@ -1,0 +1,114 @@
+{
+  "title": "SaaS Health Overview",
+  "description": "MRR, paying customers, signups and churn, with plan and channel breakdowns. MRR history is reconstructed from signup and churn dates, using each customer's current MRR value.",
+  "source": "../data/saas.csv",
+  "refresh_seconds": 60,
+  "model": "openrouter/anthropic/claude-sonnet-5.5",
+  "filters": [
+    {
+      "column": "signup_date",
+      "type": "date_range"
+    },
+    {
+      "column": "plan",
+      "type": "select"
+    },
+    {
+      "column": "channel",
+      "type": "select"
+    }
+  ],
+  "panels": [
+    {
+      "id": "kpi_mrr",
+      "title": "Current MRR",
+      "type": "kpi",
+      "sql": "WITH a AS (SELECT greatest(max(signup_date), max(churned_at)) AS d FROM saas)\nSELECT\n  sum(mrr) FILTER (WHERE signup_date <= d AND (churned_at IS NULL OR churned_at > d)) AS mrr,\n  sum(mrr) FILTER (WHERE signup_date <= d - INTERVAL 30 DAY AND (churned_at IS NULL OR churned_at > d - INTERVAL 30 DAY)) AS prev_mrr\nFROM saas, a",
+      "value": "mrr",
+      "compare": "prev_mrr",
+      "format": "currency"
+    },
+    {
+      "id": "kpi_paying_customers",
+      "title": "Paying customers",
+      "type": "kpi",
+      "sql": "WITH a AS (SELECT greatest(max(signup_date), max(churned_at)) AS d FROM saas)\nSELECT\n  count(*) FILTER (WHERE mrr > 0 AND signup_date <= d AND (churned_at IS NULL OR churned_at > d)) AS paying,\n  count(*) FILTER (WHERE mrr > 0 AND signup_date <= d - INTERVAL 30 DAY AND (churned_at IS NULL OR churned_at > d - INTERVAL 30 DAY)) AS prev_paying\nFROM saas, a",
+      "value": "paying",
+      "compare": "prev_paying",
+      "format": "compact"
+    },
+    {
+      "id": "kpi_signups",
+      "title": "Signups (30d)",
+      "type": "kpi",
+      "sql": "WITH a AS (SELECT greatest(max(signup_date), max(churned_at)) AS d FROM saas)\nSELECT\n  count(*) FILTER (WHERE signup_date > d - INTERVAL 30 DAY AND signup_date <= d) AS signups,\n  count(*) FILTER (WHERE signup_date > d - INTERVAL 60 DAY AND signup_date <= d - INTERVAL 30 DAY) AS prev_signups\nFROM saas, a",
+      "value": "signups",
+      "compare": "prev_signups",
+      "format": "compact"
+    },
+    {
+      "id": "kpi_churn_rate",
+      "title": "Churn rate (30d)",
+      "type": "kpi",
+      "sql": "WITH a AS (SELECT greatest(max(signup_date), max(churned_at)) AS d FROM saas)\nSELECT\n  1.0 * count(*) FILTER (WHERE signup_date <= d - INTERVAL 30 DAY AND churned_at > d - INTERVAL 30 DAY AND churned_at <= d)\n    / NULLIF(count(*) FILTER (WHERE signup_date <= d - INTERVAL 30 DAY AND (churned_at IS NULL OR churned_at > d - INTERVAL 30 DAY)), 0) AS churn_rate,\n  1.0 * count(*) FILTER (WHERE signup_date <= d - INTERVAL 60 DAY AND churned_at > d - INTERVAL 60 DAY AND churned_at <= d - INTERVAL 30 DAY)\n    / NULLIF(count(*) FILTER (WHERE signup_date <= d - INTERVAL 60 DAY AND (churned_at IS NULL OR churned_at > d - INTERVAL 60 DAY)), 0) AS prev_churn_rate\nFROM saas, a",
+      "value": "churn_rate",
+      "compare": "prev_churn_rate",
+      "format": "percent",
+      "lower_is_better": true
+    },
+    {
+      "id": "mrr_by_plan",
+      "title": "MRR by plan (month-end)",
+      "type": "area",
+      "sql": "WITH a AS (\n  SELECT greatest(max(signup_date), max(churned_at)) AS d FROM saas\n),\nm AS (\n  SELECT\n    CAST(g AS DATE) AS month,\n    least(CAST(g AS DATE) + INTERVAL 1 MONTH - INTERVAL 1 DAY, (SELECT d FROM a)) AS snap\n  FROM (SELECT unnest(generate_series(date_trunc('month', min(signup_date)), date_trunc('month', max(signup_date)), INTERVAL 1 MONTH)) AS g FROM saas)\n)\nSELECT\n  m.month AS month,\n  s.plan AS plan,\n  sum(s.mrr) AS mrr\nFROM m\nJOIN saas s\n  ON s.signup_date <= m.snap\n  AND (s.churned_at IS NULL OR s.churned_at > m.snap)\nWHERE s.plan <> 'free'\nGROUP BY 1, 2\nORDER BY 1",
+      "x": "month",
+      "y": [
+        "mrr"
+      ],
+      "series": "plan",
+      "format": "currency"
+    },
+    {
+      "id": "weekly_signups_by_plan",
+      "title": "Weekly signups by plan",
+      "type": "stacked_bar",
+      "sql": "SELECT\n  date_trunc('week', signup_date) AS week,\n  plan,\n  count(*) AS signups\nFROM saas\nGROUP BY 1, 2\nORDER BY 1",
+      "x": "week",
+      "y": [
+        "signups"
+      ],
+      "series": "plan",
+      "format": "number"
+    },
+    {
+      "id": "monthly_churn_by_plan",
+      "title": "Monthly churn rate by plan",
+      "type": "line",
+      "sql": "WITH m AS (\n  SELECT CAST(g AS DATE) AS month\n  FROM (SELECT unnest(generate_series(date_trunc('month', min(signup_date)), date_trunc('month', max(signup_date)), INTERVAL 1 MONTH)) AS g FROM saas)\n)\nSELECT\n  m.month AS month,\n  s.plan AS plan,\n  1.0 * count(*) FILTER (WHERE s.churned_at < m.month + INTERVAL 1 MONTH) / count(*) AS churn_rate\nFROM m\nJOIN saas s\n  ON s.signup_date < m.month\n  AND (s.churned_at IS NULL OR s.churned_at >= m.month)\nGROUP BY 1, 2\nORDER BY 1",
+      "x": "month",
+      "y": [
+        "churn_rate"
+      ],
+      "series": "plan",
+      "format": "percent"
+    },
+    {
+      "id": "signups_by_channel",
+      "title": "Signups by channel",
+      "type": "bar",
+      "sql": "SELECT\n  channel,\n  count(*) AS signups\nFROM saas\nGROUP BY 1\nORDER BY signups DESC",
+      "x": "channel",
+      "y": [
+        "signups"
+      ],
+      "format": "number"
+    },
+    {
+      "id": "top_accounts",
+      "title": "Top accounts by MRR",
+      "type": "table",
+      "sql": "SELECT\n  company,\n  plan,\n  seats,\n  country,\n  channel,\n  signup_date,\n  mrr\nFROM saas\nWHERE churned_at IS NULL\nORDER BY mrr DESC, seats DESC\nLIMIT 20",
+      "limit": 20
+    }
+  ]
+}

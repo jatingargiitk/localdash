@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="localdash 0.1.0">
+<title>Creator Analytics Dashboard</title>
+<style>
+:root {
+  --radius: 14px;
+  --font: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+[data-theme="dark"] {
+  --bg: #0b0d12; --bg-grad: radial-gradient(1200px 600px at 10% -10%, rgba(124,156,255,.10), transparent 60%), radial-gradient(900px 500px at 100% 0%, rgba(79,209,197,.06), transparent 60%);
+  --card: #12151c; --card-2: #161a23; --border: #222836; --border-strong: #2e3647;
+  --text: #e8ebf2; --muted: #8b93a7; --faint: #5d6579;
+  --accent: #7c9cff; --accent-soft: rgba(124,156,255,.14); --good: #4ade80; --bad: #f87171;
+  --code-bg: #0d1017; --kw: #c4a5ff; --fn: #7dd3fc; --str: #a5e3a0; --num: #fdba74; --cmt: #5d6579;
+  --grid: rgba(255,255,255,.06); --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px rgba(0,0,0,.25);
+}
+[data-theme="light"] {
+  --bg: #f6f7fb; --bg-grad: radial-gradient(1200px 600px at 10% -10%, rgba(79,107,237,.08), transparent 60%);
+  --card: #ffffff; --card-2: #fafbfd; --border: #e5e8f0; --border-strong: #d5dae6;
+  --text: #141824; --muted: #5b6478; --faint: #8b93a7;
+  --accent: #4f6bed; --accent-soft: rgba(79,107,237,.10); --good: #16a34a; --bad: #dc2626;
+  --code-bg: #f4f6fb; --kw: #7c3aed; --fn: #0369a1; --str: #15803d; --num: #c2410c; --cmt: #8b93a7;
+  --grid: rgba(20,24,36,.07); --shadow: 0 1px 2px rgba(20,24,36,.04), 0 6px 20px rgba(20,24,36,.05);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); background-image: var(--bg-grad); background-attachment: fixed;
+  color: var(--text); font: 14px/1.5 var(--font); -webkit-font-smoothing: antialiased;
+  font-feature-settings: "tnum" 1, "cv11" 1;
+}
+.wrap { max-width: 1440px; margin: 0 auto; padding: 28px 28px 48px; }
+
+/* header */
+header.top { display: flex; gap: 24px; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; }
+.brand { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 600; margin-bottom: 8px; }
+.brand i { width: 8px; height: 8px; border-radius: 2px; background: linear-gradient(135deg, var(--accent), #4fd1c5); transform: rotate(45deg); display: inline-block; }
+h1 { font-size: 26px; line-height: 1.2; margin: 0 0 4px; letter-spacing: -.02em; font-weight: 650; }
+.desc { color: var(--muted); margin: 0 0 12px; max-width: 760px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--muted); font-size: 12.5px; white-space: nowrap; max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
+.chip b { color: var(--text); font-weight: 550; overflow: hidden; text-overflow: ellipsis; }
+.chip svg { width: 13px; height: 13px; flex: none; opacity: .8; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+.live .dot { background: var(--good); box-shadow: 0 0 0 0 rgba(74,222,128,.6); animation: pulse 2s infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(74,222,128,.5); } 70% { box-shadow: 0 0 0 7px rgba(74,222,128,0); } 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); } }
+.actions { display: flex; gap: 8px; align-items: center; }
+button { font: inherit; cursor: pointer; }
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--text); font-size: 13px; font-weight: 500; transition: border-color .15s, background .15s; }
+.btn:hover { border-color: var(--border-strong); background: var(--card-2); }
+.btn svg { width: 14px; height: 14px; }
+.btn.primary { border-color: transparent; background: var(--accent-soft); color: var(--accent); }
+.btn.primary[aria-pressed="true"] { background: var(--accent); color: #fff; }
+
+/* filters */
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); background: var(--card); border-radius: 12px; margin-bottom: 18px; }
+.filters label { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12.5px; }
+.filters select, .filters input { font: inherit; font-size: 13px; color: var(--text); background: var(--card-2); border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; color-scheme: dark; }
+.filters .sep { width: 1px; height: 20px; background: var(--border); }
+.filters .clear { margin-left: auto; color: var(--muted); background: none; border: 0; font-size: 12.5px; }
+.filters .clear:hover { color: var(--text); }
+
+/* grid */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 14px; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.span-2 { grid-column: 1 / -1; }
+@media (max-width: 980px) { .grid { grid-template-columns: minmax(0, 1fr); } .wrap { padding: 18px 14px 36px; } }
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; min-width: 0; position: relative; }
+.card-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 14px 16px 6px; }
+.card-t { font-size: 13.5px; font-weight: 600; letter-spacing: -.005em; margin: 0; }
+.card-d { color: var(--faint); font-size: 12px; margin: 2px 0 0; }
+.card-b { padding: 6px 14px 14px; flex: 1; min-height: 0; }
+.chart { position: relative; height: 290px; }
+.card.pie .chart { height: 260px; }
+
+/* the SQL toggle: the point of the whole thing */
+.sql-btn { display: inline-flex; align-items: center; gap: 5px; flex: none; padding: 3px 9px 3px 7px; border-radius: 7px; border: 1px solid var(--border); background: var(--card-2); color: var(--muted); font: 600 11px/1.6 var(--mono); letter-spacing: .03em; transition: all .15s; }
+.sql-btn svg { width: 12px; height: 12px; }
+.sql-btn:hover { color: var(--accent); border-color: var(--accent); }
+.card.show-sql .sql-btn { color: #fff; background: var(--accent); border-color: var(--accent); }
+.sql { display: none; border-top: 1px solid var(--border); background: var(--code-bg); border-radius: 0 0 var(--radius) var(--radius); }
+.card.show-sql .sql { display: block; }
+.sql-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 12px 0 14px; color: var(--faint); font: 11px/1.6 var(--mono); }
+.copy { border: 1px solid var(--border); background: var(--card); color: var(--muted); border-radius: 6px; padding: 2px 8px; font: 11px/1.6 var(--mono); }
+.copy:hover { color: var(--text); border-color: var(--border-strong); }
+.copy.ok { color: var(--good); border-color: var(--good); }
+pre.code { margin: 0; padding: 8px 14px 14px; overflow: auto; max-height: 340px; font: 12.5px/1.65 var(--mono); color: var(--text); white-space: pre; tab-size: 2; }
+.code .k { color: var(--kw); font-weight: 600; } .code .f { color: var(--fn); } .code .s { color: var(--str); } .code .n { color: var(--num); } .code .c { color: var(--cmt); font-style: italic; }
+
+/* kpi */
+.kpi .card-h { padding-bottom: 0; }
+.kpi .card-t { color: var(--muted); font-weight: 550; font-size: 12.5px; }
+.kpi-v { font-size: 30px; font-weight: 650; letter-spacing: -.025em; line-height: 1.15; padding: 4px 16px 0; transition: color .6s; }
+.kpi-v.flash { color: var(--accent); }
+.kpi-c { display: flex; align-items: center; gap: 6px; padding: 6px 16px 14px; font-size: 12px; color: var(--faint); min-height: 22px; }
+.delta { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 999px; font-weight: 600; font-size: 11.5px; }
+.delta.up { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.delta.down { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+.delta.flat { color: var(--muted); background: var(--card-2); }
+
+/* table */
+.tbl-wrap { overflow: auto; max-height: 420px; border: 1px solid var(--border); border-radius: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 8px 12px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--border); }
+th { position: sticky; top: 0; background: var(--card-2); color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; z-index: 1; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: var(--accent-soft); }
+.note { color: var(--faint); font-size: 12px; padding: 8px 2px 0; }
+
+.err { color: var(--bad); background: color-mix(in srgb, var(--bad) 8%, transparent); border: 1px solid color-mix(in srgb, var(--bad) 30%, transparent); border-radius: 10px; padding: 10px 12px; font: 12px/1.5 var(--mono); white-space: pre-wrap; word-break: break-word; }
+.empty { display: grid; place-items: center; height: 100%; min-height: 120px; color: var(--faint); font-size: 13px; }
+
+footer { margin-top: 28px; color: var(--faint); font-size: 12px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+footer a { color: var(--muted); text-decoration: none; border-bottom: 1px dotted var(--border-strong); }
+footer code { font-family: var(--mono); color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="brand"><i></i>localdash</div>
+      <h1>Creator Analytics Dashboard</h1>
+<p class="desc">Monitor key metrics and trends for your content creator activities.</p>      <div class="meta">
+        <span class="chip" title="Data source"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg><b id="ld-source">x_posts.csv</b></span>
+<span class="chip" title="Model that wrote the spec"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg><b>ollama/qwen2.5-coder:7b</b></span>        <span class="chip " title="Last refreshed"><span class="dot"></span><span id="ld-refreshed">Snapshot</span></span>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="ld-all-sql" aria-pressed="false" title="Show the SQL behind every panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>Show all SQL</button>
+      <button class="btn" id="ld-theme" title="Toggle theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+    </div>
+  </header>
+
+
+
+  <section class="kpis">
+    <article class="card kpi" id="panel-kpi_views" data-panel="kpi_views">
+      <div class="card-h"><h3 class="card-t">Total Views (30d)</h3><button class="sql-btn" data-toggle="kpi_views" title="Show the SQL behind this panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>SQL</button></div>
+      <div class="kpi-v" data-value="kpi_views">&nbsp;</div>
+      <div class="kpi-c" data-compare="kpi_views"></div>
+        <div class="sql">
+    <div class="sql-bar"><span class="sql-info" data-info="kpi_views">DuckDB SQL</span><button class="copy" data-copy="kpi_views">copy</button></div>
+    <pre class="code" data-sql="kpi_views">WITH a AS (SELECT max(posted_at) AS d FROM x_posts)
+SELECT
+  sum(views) FILTER (WHERE posted_at &gt; d - INTERVAL 30 DAY) AS total_views,
+  sum(views) FILTER (WHERE posted_at &lt;= d - INTERVAL 30 DAY AND posted_at &gt; d - INTERVAL 60 DAY) AS prev_total_views
+FROM x_posts, a</pre>
+  </div>
+
+    </article>
+    <article class="card kpi" id="panel-kpi_new_followers" data-panel="kpi_new_followers">
+      <div class="card-h"><h3 class="card-t">New Followers (30d)</h3><button class="sql-btn" data-toggle="kpi_new_followers" title="Show the SQL behind this panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>SQL</button></div>
+      <div class="kpi-v" data-value="kpi_new_followers">&nbsp;</div>
+      <div class="kpi-c" data-compare="kpi_new_followers"></div>
+        <div class="sql">
+    <div class="sql-bar"><span class="sql-info" data-info="kpi_new_followers">DuckDB SQL</span><button class="copy" data-copy="kpi_new_followers">copy</button></div>
+    <pre class="code" data-sql="kpi_new_followers">WITH a AS (SELECT max(posted_at) AS d FROM x_posts)
+SELECT
+  sum(new_followers) FILTER (WHERE posted_at &gt; d - INTERVAL 30 DAY) AS new_followers,
+  sum(new_followers) FILTER (WHERE posted_at &lt;= d - INTERVAL 30 DAY AND posted_at &gt; d - INTERVAL 60 DAY) AS prev_new_followers
+FROM x_posts, a</pre>
+  </div>
+
+    </article>
+  </section>
+
+  <section class="grid">
+    <article class="card line" id="panel-weekly_views_trend" data-panel="weekly_views_trend">
+      <div class="card-h">
+        <div><h3 class="card-t">Weekly Views Trend</h3></div>
+        <button class="sql-btn" data-toggle="weekly_views_trend" title="Show the SQL behind this panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>SQL</button>
+      </div>
+      <div class="card-b" data-body="weekly_views_trend">
+<div class="chart"><canvas data-canvas="weekly_views_trend" aria-label="Weekly Views Trend"></canvas></div>      </div>
+        <div class="sql">
+    <div class="sql-bar"><span class="sql-info" data-info="weekly_views_trend">DuckDB SQL</span><button class="copy" data-copy="weekly_views_trend">copy</button></div>
+    <pre class="code" data-sql="weekly_views_trend">SELECT date_trunc(&#39;week&#39;, posted_at) AS week, sum(views) AS views
+FROM x_posts
+GROUP BY 1
+ORDER BY 1</pre>
+  </div>
+
+    </article>
+    <article class="card bar" id="panel-average_views_by_format" data-panel="average_views_by_format">
+      <div class="card-h">
+        <div><h3 class="card-t">Average Views by Post Format</h3></div>
+        <button class="sql-btn" data-toggle="average_views_by_format" title="Show the SQL behind this panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>SQL</button>
+      </div>
+      <div class="card-b" data-body="average_views_by_format">
+<div class="chart"><canvas data-canvas="average_views_by_format" aria-label="Average Views by Post Format"></canvas></div>      </div>
+        <div class="sql">
+    <div class="sql-bar"><span class="sql-info" data-info="average_views_by_format">DuckDB SQL</span><button class="copy" data-copy="average_views_by_format">copy</button></div>
+    <pre class="code" data-sql="average_views_by_format">SELECT format, avg(views) AS avg_views
+FROM x_posts
+GROUP BY 1
+ORDER BY 2 DESC</pre>
+  </div>
+
+    </article>
+    <article class="card bar" id="panel-engagement_rate_by_hour" data-panel="engagement_rate_by_hour">
+      <div class="card-h">
+        <div><h3 class="card-t">Engagement Rate by Hour of Day</h3></div>
+        <button class="sql-btn" data-toggle="engagement_rate_by_hour" title="Show the SQL behind this panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>SQL</button>
+      </div>
+      <div class="card-b" data-body="engagement_rate_by_hour">
+<div class="chart"><canvas data-canvas="engagement_rate_by_hour" aria-label="Engagement Rate by Hour of Day"></canvas></div>      </div>
+        <div class="sql">
+    <div class="sql-bar"><span class="sql-info" data-info="engagement_rate_by_hour">DuckDB SQL</span><button class="copy" data-copy="engagement_rate_by_hour">copy</button></div>
+    <pre class="code" data-sql="engagement_rate_by_hour">SELECT hour, (sum(likes + replies + reposts + bookmarks) / sum(views)) AS engagement_rate
+FROM x_posts
+GROUP BY 1
+ORDER BY 1</pre>
+  </div>
+
+    </article>
+    <article class="card pie" id="panel-views_by_topic" data-panel="views_by_topic">
+      <div class="card-h">
+        <div><h3 class="card-t">Views by Topic</h3></div>
+        <button class="sql-btn" data-toggle="views_by_topic" title="Show the SQL behind this panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>SQL</button>
+      </div>
+      <div class="card-b" data-body="views_by_topic">
+<div class="chart"><canvas data-canvas="views_by_topic" aria-label="Views by Topic"></canvas></div>      </div>
+        <div class="sql">
+    <div class="sql-bar"><span class="sql-info" data-info="views_by_topic">DuckDB SQL</span><button class="copy" data-copy="views_by_topic">copy</button></div>
+    <pre class="code" data-sql="views_by_topic">SELECT topic, sum(views) AS views
+FROM x_posts
+GROUP BY 1
+ORDER BY 2 DESC
+LIMIT 8</pre>
+  </div>
+
+    </article>
+    <article class="card table span-2" id="panel-top_posts" data-panel="top_posts">
+      <div class="card-h">
+        <div><h3 class="card-t">Top Posts</h3></div>
+        <button class="sql-btn" data-toggle="top_posts" title="Show the SQL behind this panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>SQL</button>
+      </div>
+      <div class="card-b" data-body="top_posts">
+<div data-table="top_posts"></div>      </div>
+        <div class="sql">
+    <div class="sql-bar"><span class="sql-info" data-info="top_posts">DuckDB SQL</span><button class="copy" data-copy="top_posts">copy</button></div>
+    <pre class="code" data-sql="top_posts">SELECT post_id, posted_at, format, topic, views, likes, replies, reposts, bookmarks, new_followers
+FROM x_posts
+ORDER BY views DESC
+LIMIT 10</pre>
+  </div>
+
+    </article>
+  </section>
+
+  <footer>
+    <span>Generated by <b>localdash</b> · the model wrote a JSON spec, every SQL query was executed and validated, then rendered deterministically.</span>
+    <span>Static snapshot. Run <code>localdash serve</code> for live data and filters.</span>
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+<script id="ld-data" type="application/json">{"description": "Monitor key metrics and trends for your content creator activities.", "filter_options": {}, "filters": [{"column": "posted_at", "label": "Posted At", "type": "date_range"}], "generated_at": "2026-10-17T11:26:49+05:30", "mode": "static", "model": "ollama/qwen2.5-coder:7b", "panels": [{"compare": "prev_total_views", "format": "number", "id": "kpi_views", "result": {"columns": ["total_views", "prev_total_views"], "ms": 134.9, "rows": [[2285882, 1199747]], "truncated": false}, "sql": "WITH a AS (SELECT max(posted_at) AS d FROM x_posts)\nSELECT\n  sum(views) FILTER (WHERE posted_at \u003e d - INTERVAL 30 DAY) AS total_views,\n  sum(views) FILTER (WHERE posted_at \u003c= d - INTERVAL 30 DAY AND posted_at \u003e d - INTERVAL 60 DAY) AS prev_total_views\nFROM x_posts, a", "title": "Total Views (30d)", "type": "kpi", "value": "total_views"}, {"compare": "prev_new_followers", "format": "number", "id": "kpi_new_followers", "result": {"columns": ["new_followers", "prev_new_followers"], "ms": 74.5, "rows": [[1225, 639]], "truncated": false}, "sql": "WITH a AS (SELECT max(posted_at) AS d FROM x_posts)\nSELECT\n  sum(new_followers) FILTER (WHERE posted_at \u003e d - INTERVAL 30 DAY) AS new_followers,\n  sum(new_followers) FILTER (WHERE posted_at \u003c= d - INTERVAL 30 DAY AND posted_at \u003e d - INTERVAL 60 DAY) AS prev_new_followers\nFROM x_posts, a", "title": "New Followers (30d)", "type": "kpi", "value": "new_followers"}, {"id": "weekly_views_trend", "result": {"columns": ["week", "views"], "ms": 34.6, "rows": [["2025-12-29", 13984], ["2026-01-05", 142503], ["2026-01-12", 57992], ["2026-01-19", 143380], ["2026-01-26", 102554], ["2026-02-02", 128123], ["2026-02-09", 46624], ["2026-02-16", 131872], ["2026-02-23", 82711], ["2026-03-02", 83988], ["2026-03-09", 161845], ["2026-03-16", 97974], ["2026-03-23", 84526], ["2026-03-30", 192905], ["2026-04-06", 211225], ["2026-04-13", 148245], ["2026-04-20", 246382], ["2026-04-27", 136029], ["2026-05-04", 228003], ["2026-05-11", 175114], ["2026-05-18", 147833], ["2026-05-25", 300618], ["2026-06-01", 214453], ["2026-06-08", 231013], ["2026-06-15", 240984], ["2026-06-22", 369010], ["2026-06-29", 255584], ["2026-07-06", 777450], ["2026-07-13", 338674], ["2026-07-20", 246592], ["2026-07-27", 222530], ["2026-08-03", 245387], ["2026-08-10", 212998], ["2026-08-17", 304999], ["2026-08-24", 215874], ["2026-08-31", 404196], ["2026-09-07", 142056], ["2026-09-14", 288520], ["2026-09-21", 387532], ["2026-09-28", 784272], ["2026-10-05", 396691], ["2026-10-12", 561489]], "truncated": false}, "sql": "SELECT date_trunc(\u0027week\u0027, posted_at) AS week, sum(views) AS views\nFROM x_posts\nGROUP BY 1\nORDER BY 1", "title": "Weekly Views Trend", "type": "line", "x": "week", "y": ["views"]}, {"id": "average_views_by_format", "result": {"columns": ["format", "avg_views"], "ms": 40.5, "rows": [["video", 22473.576923076922], ["thread", 21048.01754385965], ["image", 18175.03125], ["poll", 15805.537037037036], ["link", 13220.82105263158], ["text", 12918.708333333334]], "truncated": false}, "sql": "SELECT format, avg(views) AS avg_views\nFROM x_posts\nGROUP BY 1\nORDER BY 2 DESC", "title": "Average Views by Post Format", "type": "bar", "x": "format", "y": ["avg_views"]}, {"id": "engagement_rate_by_hour", "result": {"columns": ["hour", "engagement_rate"], "ms": 56.2, "rows": [[0, 0.0335228444339706], [1, 0.019288591365518807], [2, 0.021883431116440408], [3, 0.01744465946099023], [4, 0.042528056704075605], [5, 0.030719053398058253], [6, 0.03413849864104429], [7, 0.031598055328091804], [8, 0.03310445216667249], [9, 0.02732658131091152], [10, 0.02985048773817121], [11, 0.028119872508156837], [12, 0.031968391823398105], [13, 0.027629518746021094], [14, 0.025884247735781966], [15, 0.0246316365802992], [16, 0.02852618166999386], [17, 0.02496083781338942], [18, 0.02484043018274023], [19, 0.027197397294671223], [20, 0.029340524409313163], [21, 0.03272017321699381], [22, 0.02458098780235464], [23, 0.03017579315992125]], "truncated": false}, "sql": "SELECT hour, (sum(likes + replies + reposts + bookmarks) / sum(views)) AS engagement_rate\nFROM x_posts\nGROUP BY 1\nORDER BY 1", "title": "Engagement Rate by Hour of Day", "type": "bar", "x": "hour", "y": ["engagement_rate"]}, {"id": "views_by_topic", "result": {"columns": ["topic", "views"], "ms": 33.5, "rows": [["ai", 3789272], ["startups", 2219996], ["coding", 1546821], ["memes", 1334614], ["career", 1014031]], "truncated": false}, "sql": "SELECT topic, sum(views) AS views\nFROM x_posts\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 8", "title": "Views by Topic", "type": "pie", "x": "topic", "y": ["views"]}, {"id": "top_posts", "limit": 10, "result": {"columns": ["post_id", "posted_at", "format", "topic", "views", "likes", "replies", "reposts", "bookmarks", "new_followers"], "ms": 32.2, "rows": [[1791283177909916706, "2026-07-12 09:05:00", "link", "ai", 580980, 6194, 563, 634, 871, 333], [1792212798906079444, "2026-09-30 09:14:00", "thread", "memes", 265654, 6355, 1028, 734, 2846, 145], [1792191733136610107, "2026-09-28 21:45:00", "image", "career", 171077, 4264, 370, 455, 599, 88], [1792392947123824339, "2026-10-13 10:08:00", "text", "ai", 147380, 2776, 242, 310, 410, 103], [1792410578550964671, "2026-10-14 20:44:00", "thread", "startups", 109673, 1915, 299, 225, 864, 73], [1792178806777169718, "2026-09-27 09:31:00", "text", "ai", 102925, 2291, 214, 276, 314, 51], [1792348168593635162, "2026-10-09 10:40:00", "image", "ai", 95623, 1265, 99, 139, 151, 50], [1791044318257070845, "2026-06-22 03:32:00", "video", "memes", 91964, 1004, 97, 123, 140, 48], [1791799628406539546, "2026-08-21 07:16:00", "poll", "startups", 91490, 3613, 570, 380, 476, 41], [1790351362724978062, "2026-04-24 19:13:00", "image", "ai", 91243, 1252, 105, 151, 171, 45]], "truncated": false}, "sql": "SELECT post_id, posted_at, format, topic, views, likes, replies, reposts, bookmarks, new_followers\nFROM x_posts\nORDER BY views DESC\nLIMIT 10", "title": "Top Posts", "type": "table"}], "refresh_seconds": 60, "source": "x_posts.csv", "spec_version": null, "title": "Creator Analytics Dashboard", "version": "0.1.0"}</script>
+<script>
+(function () {
+"use strict";
+const LD = JSON.parse(document.getElementById("ld-data").textContent);
+const panels = Object.fromEntries(LD.panels.map(p => [p.id, p]));
+const charts = {};
+const $ = (s, el) => (el || document).querySelector(s);
+const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const PALETTE = {
+  dark:  ["#7c9cff", "#4fd1c5", "#f6ad55", "#f687b3", "#a78bfa", "#68d391", "#63b3ed", "#f6e05e", "#fc8181", "#a0aec0"],
+  light: ["#4f6bed", "#0d9488", "#ea8a1a", "#db2777", "#7c3aed", "#16a34a", "#0284c7", "#ca8a04", "#dc2626", "#64748b"],
+};
+const theme = () => document.documentElement.dataset.theme;
+const colorSlots = new Map();
+/* the same series label ("pro", "US", ...) gets the same color in every panel;
+   labels new to the page take the strongest palette slots not already used in this chart */
+function assignColors(keys) {
+  keys = keys.map(String);
+  const used = new Set(keys.filter(k => colorSlots.has(k)).map(k => colorSlots.get(k) % 10));
+  for (const k of keys) {
+    if (colorSlots.has(k)) continue;
+    let slot = 0;
+    while (used.has(slot) && slot < 9) slot++;
+    if (used.has(slot)) slot = colorSlots.size % 10;
+    colorSlots.set(k, slot); used.add(slot);
+  }
+}
+const colorFor = key => { key = String(key); if (!colorSlots.has(key)) assignColors([key]); return PALETTE[theme()][colorSlots.get(key) % 10]; };
+/* single-series panels rotate through the strongest colors only */
+const soloSlots = new Map();
+const soloColor = id => { if (!soloSlots.has(id)) soloSlots.set(id, soloSlots.size); return PALETTE[theme()][soloSlots.get(id) % 6]; };
+const alpha = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+
+/* ---------- formatting ---------- */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?)?/;
+const isNum = v => typeof v === "number" && isFinite(v);
+function compact(n) {
+  const a = Math.abs(n);
+  if (a >= 1e9) return (n / 1e9).toFixed(a >= 1e10 ? 0 : 1).replace(/\.0$/, "") + "B";
+  if (a >= 1e6) return (n / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace(/\.0$/, "") + "M";
+  if (a >= 1e4) return (n / 1e3).toFixed(a >= 1e5 ? 0 : 1).replace(/\.0$/, "") + "k";
+  return n.toLocaleString(undefined, { maximumFractionDigits: a < 10 ? 2 : a < 1000 ? 1 : 0 });
+}
+function makeFormatter(fmt, values, big) {
+  const nums = values.filter(isNum);
+  const pctScale = nums.length && nums.every(v => Math.abs(v) <= 1.0) ? 100 : 1;
+  return v => {
+    if (!isNum(v)) return v == null ? "–" : String(v);
+    switch (fmt) {
+      case "currency": return (v < 0 ? "-$" : "$") + (big || Math.abs(v) >= 1e4 ? compact(Math.abs(v)) : Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 2 }));
+      case "percent": return (v * pctScale).toLocaleString(undefined, { maximumFractionDigits: 1 }) + "%";
+      case "compact": return compact(v);
+      default: return big && Math.abs(v) >= (big === true ? 1e5 : big) ? compact(v) : v.toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 10 ? 2 : 1 });
+    }
+  };
+}
+function parseDate(s) { const d = new Date(s.length <= 10 ? s + "T00:00:00" : s.replace(" ", "T")); return isNaN(d) ? null : d; }
+function dateLabeler(labels) {
+  if (!labels.length || !labels.every(l => typeof l === "string" && DATE_RE.test(l))) return null;
+  const ds = labels.map(parseDate);
+  if (ds.some(d => !d)) return null;
+  const hasTime = ds.some(d => d.getHours() || d.getMinutes());
+  const monthly = !hasTime && ds.every(d => d.getDate() === 1);
+  const years = new Set(ds.map(d => d.getFullYear())).size > 1;
+  return s => {
+    const d = parseDate(s);
+    if (hasTime) return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    if (monthly) return d.toLocaleDateString(undefined, { month: "short", year: years ? "2-digit" : undefined });
+    const md = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return years ? `${md} '${String(d.getFullYear()).slice(2)}` : md;
+  };
+}
+const cellText = v => v == null ? "" : (typeof v === "string" && / 00:00:00$/.test(v) ? v.slice(0, 10) : isNum(v) ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : String(v));
+
+/* ---------- SQL highlighting ---------- */
+const KW = new Set(("select from where group by order limit offset having with as join left right inner outer full cross on and or not in is null " +
+  "case when then else end desc asc distinct union all over partition rows range between preceding following current row interval " +
+  "like ilike exists cast filter qualify using lateral window true false nulls first last except intersect values recursive").split(" "));
+function highlight(sql) {
+  const re = /(--[^\n]*)|('(?:[^']|'')*')|("(?:[^"]|"")*")|(\b\d+(?:\.\d+)?\b)|([A-Za-z_][A-Za-z0-9_]*)(\s*\()?|([\s\S])/g;
+  let out = "", m;
+  while ((m = re.exec(sql))) {
+    if (m[1]) out += `<span class="c">${esc(m[1])}</span>`;
+    else if (m[2]) out += `<span class="s">${esc(m[2])}</span>`;
+    else if (m[3]) out += esc(m[3]);
+    else if (m[4]) out += `<span class="n">${m[4]}</span>`;
+    else if (m[5]) {
+      const w = m[5], paren = m[6] || "";
+      if (KW.has(w.toLowerCase())) out += `<span class="k">${esc(w)}</span>${esc(paren)}`;
+      else if (paren) out += `<span class="f">${esc(w)}</span>${esc(paren)}`;
+      else out += esc(w);
+    } else out += esc(m[7]);
+  }
+  return out;
+}
+
+/* ---------- chart building ---------- */
+function columnsOf(res) { const idx = {}; (res.columns || []).forEach((c, i) => idx[c] = i); return idx; }
+function sortLabels(labels) {
+  if (labels.every(isNum)) return labels.slice().sort((a, b) => a - b);
+  if (labels.every(l => typeof l === "string" && DATE_RE.test(l))) return labels.slice().sort();
+  return labels;
+}
+function xyData(p, res) {
+  const ci = columnsOf(res), rows = res.rows || [];
+  const xi = ci[p.x], si = p.series ? ci[p.series] : undefined, ys = p.y || [];
+  let labels = []; const seen = new Set();
+  rows.forEach(r => { const k = r[xi]; if (!seen.has(k)) { seen.add(k); labels.push(k); } });
+  labels = sortLabels(labels);
+  const pos = new Map(labels.map((l, i) => [l, i]));
+  const sets = [];
+  const stacked = p.type === "stacked_bar";
+  const blank = () => labels.map(() => (stacked ? 0 : null));
+  if (si !== undefined) {
+    const groups = new Map();
+    rows.forEach(r => { const s = r[si] == null ? "(null)" : String(r[si]); if (!groups.has(s)) groups.set(s, []); groups.get(s).push(r); });
+    const names = [...groups.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    for (const s of names) for (const y of ys) { const grp = groups.get(s);
+      const data = blank(); grp.forEach(r => { data[pos.get(r[xi])] = r[ci[y]]; });
+      sets.push({ label: ys.length > 1 ? `${s} · ${y}` : s, key: ys.length > 1 ? `${s} · ${y}` : s, data });
+    }
+  } else {
+    for (const y of ys) { const data = blank(); rows.forEach(r => { data[pos.get(r[xi])] = r[ci[y]]; }); sets.push({ label: y, key: ys.length > 1 ? y : undefined, solo: ys.length > 1 ? undefined : p.id, data }); }
+  }
+  return { labels, sets };
+}
+function styleSets(p, sets) {
+  assignColors(sets.filter(s => !s.solo).map(s => s.key ?? s.label));
+  return sets.map(s => {
+    const c = s.solo ? soloColor(s.solo) : colorFor(s.key ?? s.label);
+    const { key, solo, ...rest } = s;
+    const base = { ...rest, borderColor: c, backgroundColor: c };
+    if (p.type === "line" || p.type === "area") {
+      return { ...base, borderWidth: 2, tension: .32, pointRadius: s.data.length > 40 ? 0 : 2.5, pointHoverRadius: 4, spanGaps: true,
+        fill: p.type === "area" ? (sets.length > 1 ? "stack" : "origin") : false,
+        backgroundColor: p.type === "area" ? alpha(c, sets.length > 1 ? .55 : .18) : c };
+    }
+    if (p.type === "scatter") return { ...base, pointRadius: 3.5, pointHoverRadius: 6, backgroundColor: alpha(c, .65), borderWidth: 0 };
+    return { ...base, borderRadius: p.type === "stacked_bar" ? 3 : 6, borderSkipped: false, maxBarThickness: 46, backgroundColor: alpha(c, .88) };
+  });
+}
+function baseOptions(p, fmt, horizontal, axisFmt) {
+  const grid = css("--grid"), muted = css("--muted");
+  const stacked = p.type === "stacked_bar";
+  axisFmt = axisFmt || fmt;
+  const valueAxis = { beginAtZero: p.type !== "scatter", stacked: stacked || undefined, grid: { color: grid, drawTicks: false }, border: { display: false },
+    ticks: { color: muted, padding: 8, maxTicksLimit: 6, callback: v => axisFmt(v) } };
+  const catAxis = { stacked: stacked || undefined, grid: { display: false }, border: { color: grid }, ticks: { color: muted, maxRotation: 0, autoSkipPadding: 18, padding: 6 } };
+  return {
+    responsive: true, maintainAspectRatio: false, animation: { duration: 450 },
+    interaction: { mode: p.type === "scatter" ? "nearest" : "index", intersect: p.type === "scatter" },
+    plugins: {
+      legend: { display: false, position: "top", align: "end", labels: { color: muted, usePointStyle: true, pointStyle: "circle", boxWidth: 7, boxHeight: 7, padding: 14 } },
+      tooltip: { backgroundColor: css("--card-2"), borderColor: css("--border-strong"), borderWidth: 1, titleColor: css("--text"), bodyColor: css("--text"), padding: 10, cornerRadius: 8, usePointStyle: true, boxPadding: 4,
+        callbacks: { label: c => ` ${c.dataset.label}: ${fmt(horizontal ? c.parsed.x : c.parsed.y)}` } },
+    },
+    indexAxis: horizontal ? "y" : "x",
+    scales: horizontal ? { x: valueAxis, y: catAxis } : { x: catAxis, y: valueAxis },
+  };
+}
+function chartConfig(p, res) {
+  const muted = css("--muted");
+  if (p.type === "pie") {
+    const ci = columnsOf(res), rows = res.rows || [];
+    const vals = rows.map(r => r[ci[p.y[0]]]);
+    const fmt = makeFormatter(p.format, vals);
+    const total = vals.filter(isNum).reduce((a, b) => a + b, 0);
+    const labels = rows.map(r => r[ci[p.x]] == null ? "(null)" : String(r[ci[p.x]]));
+    assignColors(labels);
+    const centerText = { id: "ldCenter", afterDraw(ch) {
+      const a = ch.chartArea, m = ch.getDatasetMeta(0).data[0]; if (!a || !m) return;
+      const g = ch.ctx; g.save(); g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillStyle = css("--text"); g.font = `650 20px ${css("--font")}`; g.fillText(makeFormatter(p.format, [total], true)(total), m.x, m.y - 7);
+      g.fillStyle = css("--faint"); g.font = `500 11px ${css("--font")}`; g.fillText("total", m.x, m.y + 13); g.restore();
+    } };
+    return { type: "doughnut", plugins: [centerText], data: { labels,
+      datasets: [{ data: vals, backgroundColor: labels.map(colorFor), borderColor: css("--card"), borderWidth: 2, hoverOffset: 6 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: "66%", animation: { duration: 450 }, layout: { padding: 8 },
+        plugins: { legend: { position: "right", labels: { color: muted, usePointStyle: true, pointStyle: "circle", boxWidth: 8, padding: 12,
+          generateLabels: ch => Chart.overrides.doughnut.plugins.legend.labels.generateLabels(ch).map((l, i) => ({ ...l, text: `${l.text}  ${total ? Math.round(100 * vals[i] / total) : 0}%` })) } },
+          tooltip: { callbacks: { label: c => ` ${c.label}: ${fmt(c.parsed)}` } } } } };
+  }
+  if (p.type === "scatter") {
+    const ci = columnsOf(res), rows = res.rows || [];
+    const groups = new Map();
+    rows.forEach(r => { const s = p.series ? String(r[ci[p.series]]) : p.y[0]; if (!groups.has(s)) groups.set(s, []); groups.get(s).push({ x: r[ci[p.x]], y: r[ci[p.y[0]]] }); });
+    const sets = styleSets(p, [...groups].map(([label, data]) => p.series ? { label, data } : { label, data, solo: p.id }));
+    const fmt = makeFormatter(p.format, rows.map(r => r[ci[p.y[0]]]));
+    const opts = baseOptions(p, fmt, false);
+    opts.scales.x = { type: "linear", grid: { color: css("--grid") }, border: { display: false }, ticks: { color: muted, callback: v => compact(v) },
+      title: { display: true, text: p.x, color: muted } };
+    opts.scales.y.title = { display: true, text: p.y[0], color: muted };
+    opts.plugins.legend.display = sets.length > 1;
+    opts.plugins.tooltip.callbacks.label = c => ` ${c.dataset.label}: (${compact(c.parsed.x)}, ${fmt(c.parsed.y)})`;
+    return { type: "scatter", data: { datasets: sets }, options: opts };
+  }
+  const { labels, sets } = xyData(p, res);
+  const fmt = makeFormatter(p.format, sets.flatMap(s => s.data));
+  const dl = dateLabeler(labels);
+  const categorical = !dl && !labels.every(isNum);
+  const avgLen = labels.reduce((a, l) => a + String(l).length, 0) / Math.max(1, labels.length);
+  const horizontal = (p.type === "bar" || p.type === "stacked_bar") && categorical && labels.length <= 20 && (avgLen > 7 || labels.length > 12);
+  const opts = baseOptions(p, fmt, horizontal, makeFormatter(p.format, sets.flatMap(s => s.data), 1e4));
+  opts.plugins.legend.display = sets.length > 1;
+  const cat = horizontal ? opts.scales.y : opts.scales.x;
+  if (categorical && labels.length <= 20) cat.ticks.autoSkip = false;
+  cat.ticks.callback = function (v) { const l = this.getLabelForValue(v); return dl ? dl(l) : (String(l).length > 22 ? String(l).slice(0, 21) + "…" : l); };
+  opts.plugins.tooltip.callbacks.title = items => { const l = items[0] && items[0].label; return dl && l ? dl(l) : l; };
+  if (p.type === "area" && sets.length > 1) opts.scales.y.stacked = true;
+  return { type: p.type === "line" || p.type === "area" ? "line" : "bar", data: { labels, datasets: styleSets(p, sets) }, options: opts };
+}
+
+/* ---------- panel rendering ---------- */
+function showError(p, msg) {
+  const card = document.getElementById("panel-" + p.id);
+  card.classList.add("show-sql");
+  if (p.type === "kpi") { $(`[data-value="${p.id}"]`).textContent = "–"; $(`[data-compare="${p.id}"]`).innerHTML = `<span class="err">${esc(msg)}</span>`; return; }
+  if (charts[p.id]) { charts[p.id].destroy(); delete charts[p.id]; }
+  $(`[data-body="${p.id}"]`).innerHTML = `<div class="err">${esc(msg)}</div>`;
+}
+function restoreBody(p) {
+  const body = $(`[data-body="${p.id}"]`);
+  if (!body || p.type === "kpi") return;
+  if (p.type === "table" ? !$(`[data-table="${p.id}"]`, body) : !$(`canvas`, body)) {
+    body.innerHTML = p.type === "table" ? `<div data-table="${p.id}"></div>` : `<div class="chart"><canvas data-canvas="${p.id}"></canvas></div>`;
+  }
+}
+function renderKpi(p, res, prev) {
+  const ci = columnsOf(res), row = (res.rows || [])[0];
+  const el = $(`[data-value="${p.id}"]`), cmp = $(`[data-compare="${p.id}"]`);
+  if (!row) { el.textContent = "–"; cmp.textContent = "No data"; return; }
+  const v = row[ci[p.value]], fmt = makeFormatter(p.format, [v], true);
+  const text = fmt(v);
+  if (prev && el.textContent !== text) { el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 900); }
+  el.textContent = text;
+  if (p.compare && ci[p.compare] !== undefined) {
+    const c = row[ci[p.compare]];
+    if (isNum(v) && isNum(c) && c !== 0) {
+      const lowerBetter = p.lower_is_better ?? /churn|cost|latency|error|bounce|refund|cancel|expense|spend/i.test(p.value + " " + p.title);
+      const d = (v - c) / Math.abs(c) * 100;
+      const dir = Math.abs(d) < 0.05 ? "flat" : d > 0 ? "up" : "down";
+      const cls = dir === "flat" ? "flat" : (dir === "up") !== lowerBetter ? "up" : "down";
+      cmp.innerHTML = `<span class="delta ${cls}">${dir === "up" ? "▲" : dir === "down" ? "▼" : "■"} ${Math.abs(d).toFixed(1)}%</span><span>vs ${esc(fmt(c))} prior</span>`;
+    } else cmp.innerHTML = `<span>vs ${esc(makeFormatter(p.format, [c], true)(c))} prior</span>`;
+  } else if (!p.description) cmp.innerHTML = "&nbsp;";
+}
+function renderTable(p, res) {
+  const cols = res.columns || [], rows = res.rows || [];
+  const idCol = cols.map(c => /(^|_)id$|^id_|(^|_)year$/i.test(c));
+  const numeric = cols.map((_, i) => !idCol[i] && rows.length > 0 && rows.every(r => r[i] == null || isNum(r[i])));
+  const head = cols.map((c, i) => `<th class="${numeric[i] ? "num" : ""}">${esc(c)}</th>`).join("");
+  const body = rows.map(r => `<tr>${r.map((v, i) => `<td class="${numeric[i] ? "num" : ""}">${esc(idCol[i] && v != null ? String(v) : cellText(v))}</td>`).join("")}</tr>`).join("");
+  $(`[data-table="${p.id}"]`).innerHTML = rows.length
+    ? `<div class="tbl-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${res.truncated ? `<div class="note">Showing first ${rows.length} rows</div>` : ""}`
+    : `<div class="empty">No rows</div>`;
+}
+function renderChart(p, res) {
+  const canvas = $(`[data-canvas="${p.id}"]`);
+  if (!(res.rows || []).length) { if (charts[p.id]) { charts[p.id].destroy(); delete charts[p.id]; } $(`[data-body="${p.id}"]`).innerHTML = `<div class="empty">No data</div>`; return; }
+  if (typeof Chart === "undefined") { $(`[data-body="${p.id}"]`).innerHTML = `<div class="err">Chart.js failed to load (offline?). Re-render with --offline to inline it.</div>`; return; }
+  const cfg = chartConfig(p, res);
+  const ch = charts[p.id];
+  if (ch && ch.config.type === cfg.type) {
+    ch.data.labels = cfg.data.labels;
+    cfg.data.datasets.forEach((ds, i) => { if (ch.data.datasets[i]) Object.assign(ch.data.datasets[i], ds); else ch.data.datasets.push(ds); });
+    ch.data.datasets.length = cfg.data.datasets.length;
+    ch.options = cfg.options;
+    ch.update();
+  } else {
+    if (ch) ch.destroy();
+    charts[p.id] = new Chart(canvas, cfg);
+  }
+}
+function renderPanel(p, res, isUpdate) {
+  p.result = res;
+  const info = $(`[data-info="${p.id}"]`);
+  if (info) info.textContent = res.error && !res.columns ? "DuckDB SQL · failed" : `DuckDB SQL · ${(res.rows || []).length}${res.truncated ? "+" : ""} rows · ${res.ms ?? "?"} ms`;
+  if (res.error) return showError(p, res.error);
+  restoreBody(p);
+  if (p.type === "kpi") renderKpi(p, res, isUpdate);
+  else if (p.type === "table") renderTable(p, res);
+  else renderChart(p, res);
+}
+
+/* ---------- interactions ---------- */
+$$("pre.code[data-sql]").forEach(pre => { pre.innerHTML = highlight(panels[pre.dataset.sql].sql); });
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-toggle]");
+  if (t) { document.getElementById("panel-" + t.dataset.toggle).classList.toggle("show-sql"); return; }
+  const c = e.target.closest("[data-copy]");
+  if (c) {
+    const sql = panels[c.dataset.copy].sql;
+    const done = () => { c.textContent = "copied"; c.classList.add("ok"); setTimeout(() => { c.textContent = "copy"; c.classList.remove("ok"); }, 1400); };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(sql).then(done);
+    else { const ta = document.createElement("textarea"); ta.value = sql; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); done(); }
+  }
+});
+const allBtn = $("#ld-all-sql");
+function setAllSql(on) { $$(".card[data-panel]").forEach(c => c.classList.toggle("show-sql", on)); allBtn.setAttribute("aria-pressed", String(on)); allBtn.lastChild.textContent = on ? "Hide all SQL" : "Show all SQL"; }
+allBtn.addEventListener("click", () => setAllSql(allBtn.getAttribute("aria-pressed") !== "true"));
+$("#ld-theme").addEventListener("click", () => {
+  document.documentElement.dataset.theme = theme() === "dark" ? "light" : "dark";
+  Object.keys(charts).forEach(id => { charts[id].destroy(); delete charts[id]; });
+  LD.panels.forEach(p => { if (p.result && !p.result.error && p.type !== "kpi" && p.type !== "table") renderChart(p, p.result); });
+});
+
+const refreshedEl = $("#ld-refreshed");
+function stamp(d) { refreshedEl.textContent = (LD.mode === "serve" ? "Refreshed " : "Snapshot · ") + d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: LD.mode === "serve" ? "2-digit" : undefined }); refreshedEl.parentElement.title = "Last refreshed " + d.toString(); }
+
+LD.panels.forEach(p => renderPanel(p, p.result, false));
+stamp(new Date(LD.generated_at));
+if (/(^|[#&?])sql(=1)?($|&)/.test(location.hash.slice(1) + "&" + location.search.slice(1))) setAllSql(true);
+
+/* ---------- serve mode: live refresh + filters ---------- */
+if (LD.mode === "serve") {
+  const state = {};
+  const qs = () => { const u = new URLSearchParams(); for (const [k, v] of Object.entries(state)) { if (typeof v === "string" && v) u.set("f." + k, v); else if (v && typeof v === "object") { if (v.from) u.set("f." + k + ".from", v.from); if (v.to) u.set("f." + k + ".to", v.to); } } const s = u.toString(); return s ? "?" + s : ""; };
+  let busy = false, pending = false;
+  async function refresh() {
+    if (busy) { pending = true; return; }
+    busy = true;
+    try {
+      const q = qs();
+      await Promise.all(LD.panels.map(async p => {
+        try {
+          const r = await fetch(`/data/${encodeURIComponent(p.id)}${q}`, { cache: "no-store" });
+          const res = await r.json();
+          if (res.spec_version && LD.spec_version && res.spec_version !== LD.spec_version) { location.reload(); return; }
+          renderPanel(p, res, true);
+        } catch (e) { showError(p, "Could not reach localdash server: " + e.message); }
+      }));
+      stamp(new Date());
+    } finally {
+      busy = false;
+      if (pending) { pending = false; refresh(); }
+    }
+  }
+  const btn = $("#ld-refresh"); if (btn) btn.addEventListener("click", refresh);
+  if (LD.refresh_seconds > 0) setInterval(refresh, LD.refresh_seconds * 1000);
+
+  const bar = $("#ld-filters");
+  if (bar && LD.filters.length) {
+    const parts = [];
+    LD.filters.forEach((f, i) => {
+      const opt = LD.filter_options[f.column] || {};
+      if (i) parts.push(`<span class="sep"></span>`);
+      if (f.type === "select") parts.push(`<label>${esc(f.label)} <select data-f="${esc(f.column)}"><option value="">All</option>${(opt.values || []).map(v => `<option>${esc(v)}</option>`).join("")}</select></label>`);
+      else parts.push(`<label>${esc(f.label)} <input type="date" data-f="${esc(f.column)}" data-end="from" min="${opt.min || ""}" max="${opt.max || ""}"> – <input type="date" data-f="${esc(f.column)}" data-end="to" min="${opt.min || ""}" max="${opt.max || ""}"></label>`);
+    });
+    parts.push(`<button class="clear" id="ld-clear">Clear filters</button>`);
+    bar.innerHTML = parts.join("");
+    bar.addEventListener("change", e => {
+      const el = e.target, col = el.dataset.f; if (!col) return;
+      if (el.dataset.end) { state[col] = state[col] || {}; state[col][el.dataset.end] = el.value; } else state[col] = el.value;
+      refresh();
+    });
+    $("#ld-clear").addEventListener("click", () => { for (const k in state) delete state[k]; $$("[data-f]", bar).forEach(el => el.value = ""); refresh(); });
+  }
+}
+})();
+</script>
+</body>
+</html>

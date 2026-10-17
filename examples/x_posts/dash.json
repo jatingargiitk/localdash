@@ -1,0 +1,80 @@
+{
+  "title": "Creator Analytics Dashboard",
+  "description": "Monitor key metrics and trends for your content creator activities.",
+  "source": "../data/x_posts.csv",
+  "refresh_seconds": 60,
+  "model": "ollama/qwen2.5-coder:7b",
+  "filters": [
+    {
+      "column": "posted_at",
+      "type": "date_range"
+    }
+  ],
+  "panels": [
+    {
+      "id": "kpi_views",
+      "title": "Total Views (30d)",
+      "type": "kpi",
+      "sql": "WITH a AS (SELECT max(posted_at) AS d FROM x_posts)\nSELECT\n  sum(views) FILTER (WHERE posted_at > d - INTERVAL 30 DAY) AS total_views,\n  sum(views) FILTER (WHERE posted_at <= d - INTERVAL 30 DAY AND posted_at > d - INTERVAL 60 DAY) AS prev_total_views\nFROM x_posts, a",
+      "value": "total_views",
+      "compare": "prev_total_views",
+      "format": "number"
+    },
+    {
+      "id": "kpi_new_followers",
+      "title": "New Followers (30d)",
+      "type": "kpi",
+      "sql": "WITH a AS (SELECT max(posted_at) AS d FROM x_posts)\nSELECT\n  sum(new_followers) FILTER (WHERE posted_at > d - INTERVAL 30 DAY) AS new_followers,\n  sum(new_followers) FILTER (WHERE posted_at <= d - INTERVAL 30 DAY AND posted_at > d - INTERVAL 60 DAY) AS prev_new_followers\nFROM x_posts, a",
+      "value": "new_followers",
+      "compare": "prev_new_followers",
+      "format": "number"
+    },
+    {
+      "id": "weekly_views_trend",
+      "title": "Weekly Views Trend",
+      "type": "line",
+      "sql": "SELECT date_trunc('week', posted_at) AS week, sum(views) AS views\nFROM x_posts\nGROUP BY 1\nORDER BY 1",
+      "x": "week",
+      "y": [
+        "views"
+      ]
+    },
+    {
+      "id": "average_views_by_format",
+      "title": "Average Views by Post Format",
+      "type": "bar",
+      "sql": "SELECT format, avg(views) AS avg_views\nFROM x_posts\nGROUP BY 1\nORDER BY 2 DESC",
+      "x": "format",
+      "y": [
+        "avg_views"
+      ]
+    },
+    {
+      "id": "engagement_rate_by_hour",
+      "title": "Engagement Rate by Hour of Day",
+      "type": "bar",
+      "sql": "SELECT hour, (sum(likes + replies + reposts + bookmarks) / sum(views)) AS engagement_rate\nFROM x_posts\nGROUP BY 1\nORDER BY 1",
+      "x": "hour",
+      "y": [
+        "engagement_rate"
+      ]
+    },
+    {
+      "id": "views_by_topic",
+      "title": "Views by Topic",
+      "type": "pie",
+      "sql": "SELECT topic, sum(views) AS views\nFROM x_posts\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 8",
+      "x": "topic",
+      "y": [
+        "views"
+      ]
+    },
+    {
+      "id": "top_posts",
+      "title": "Top Posts",
+      "type": "table",
+      "sql": "SELECT post_id, posted_at, format, topic, views, likes, replies, reposts, bookmarks, new_followers\nFROM x_posts\nORDER BY views DESC\nLIMIT 10",
+      "limit": 10
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+{
+  "title": "Repo growth",
+  "description": "Daily GitHub activity for the past year: stars, forks, issues and traffic. KPIs compare the last 30 days with the 30 days before.",
+  "source": "../data/github_stars.csv",
+  "refresh_seconds": 300,
+  "model": "claude-code",
+  "filters": [
+    {
+      "column": "date",
+      "type": "date_range"
+    },
+    {
+      "column": "top_referrer",
+      "type": "select"
+    }
+  ],
+  "panels": [
+    {
+      "id": "kpi_stars_30d",
+      "title": "New stars (last 30 days)",
+      "type": "kpi",
+      "format": "number",
+      "value": "stars",
+      "compare": "stars_prev",
+      "sql": "WITH a AS (SELECT max(date) AS d FROM github_stars)\nSELECT\n  sum(new_stars) FILTER (WHERE date > d - INTERVAL 30 DAY) AS stars,\n  sum(new_stars) FILTER (WHERE date <= d - INTERVAL 30 DAY AND date > d - INTERVAL 60 DAY) AS stars_prev\nFROM github_stars, a"
+    },
+    {
+      "id": "kpi_forks_30d",
+      "title": "New forks (last 30 days)",
+      "type": "kpi",
+      "format": "number",
+      "value": "forks",
+      "compare": "forks_prev",
+      "sql": "WITH a AS (SELECT max(date) AS d FROM github_stars)\nSELECT\n  sum(new_forks) FILTER (WHERE date > d - INTERVAL 30 DAY) AS forks,\n  sum(new_forks) FILTER (WHERE date <= d - INTERVAL 30 DAY AND date > d - INTERVAL 60 DAY) AS forks_prev\nFROM github_stars, a"
+    },
+    {
+      "id": "kpi_backlog_30d",
+      "title": "Net new open issues (last 30 days)",
+      "type": "kpi",
+      "format": "number",
+      "value": "net_open",
+      "compare": "net_open_prev",
+      "lower_is_better": true,
+      "description": "Issues opened minus issues closed.",
+      "sql": "WITH a AS (SELECT max(date) AS d FROM github_stars)\nSELECT\n  sum(issues_opened - issues_closed) FILTER (WHERE date > d - INTERVAL 30 DAY) AS net_open,\n  sum(issues_opened - issues_closed) FILTER (WHERE date <= d - INTERVAL 30 DAY AND date > d - INTERVAL 60 DAY) AS net_open_prev\nFROM github_stars, a"
+    },
+    {
+      "id": "kpi_visitors_30d",
+      "title": "Unique visitors (last 30 days)",
+      "type": "kpi",
+      "format": "compact",
+      "value": "visitors",
+      "compare": "visitors_prev",
+      "description": "Sum of daily unique visitors.",
+      "sql": "WITH a AS (SELECT max(date) AS d FROM github_stars)\nSELECT\n  sum(unique_visitors) FILTER (WHERE date > d - INTERVAL 30 DAY) AS visitors,\n  sum(unique_visitors) FILTER (WHERE date <= d - INTERVAL 30 DAY AND date > d - INTERVAL 60 DAY) AS visitors_prev\nFROM github_stars, a"
+    },
+    {
+      "id": "cumulative_stars",
+      "title": "Cumulative stars and forks gained",
+      "type": "area",
+      "x": "date",
+      "y": [
+        "stars",
+        "forks"
+      ],
+      "span": 2,
+      "description": "Running total since the start of the data (the CSV has no starting totals).",
+      "sql": "SELECT\n  date,\n  sum(new_stars) OVER (ORDER BY date) AS stars,\n  sum(new_forks) OVER (ORDER BY date) AS forks\nFROM github_stars\nORDER BY date"
+    },
+    {
+      "id": "weekly_stars_forks",
+      "title": "Weekly new stars and forks",
+      "type": "bar",
+      "x": "week",
+      "y": [
+        "new_stars",
+        "new_forks"
+      ],
+      "sql": "SELECT\n  date_trunc('week', date) AS week,\n  sum(new_stars) AS new_stars,\n  sum(new_forks) AS new_forks\nFROM github_stars\nGROUP BY 1\nORDER BY 1"
+    },
+    {
+      "id": "weekly_issues",
+      "title": "Weekly issues opened vs closed, PRs merged",
+      "type": "line",
+      "x": "week",
+      "y": [
+        "issues_opened",
+        "issues_closed",
+        "prs_merged"
+      ],
+      "sql": "SELECT\n  date_trunc('week', date) AS week,\n  sum(issues_opened) AS issues_opened,\n  sum(issues_closed) AS issues_closed,\n  sum(prs_merged) AS prs_merged\nFROM github_stars\nGROUP BY 1\nORDER BY 1"
+    },
+    {
+      "id": "issue_backlog",
+      "title": "Open issue backlog growth",
+      "type": "area",
+      "x": "date",
+      "y": [
+        "net_open_issues"
+      ],
+      "description": "Cumulative issues opened minus closed since the start of the data.",
+      "sql": "SELECT\n  date,\n  sum(issues_opened - issues_closed) OVER (ORDER BY date) AS net_open_issues\nFROM github_stars\nORDER BY date"
+    },
+    {
+      "id": "weekly_traffic",
+      "title": "Weekly traffic",
+      "type": "line",
+      "x": "week",
+      "y": [
+        "page_views",
+        "unique_visitors"
+      ],
+      "format": "compact",
+      "sql": "SELECT\n  date_trunc('week', date) AS week,\n  sum(page_views) AS page_views,\n  sum(unique_visitors) AS unique_visitors\nFROM github_stars\nGROUP BY 1\nORDER BY 1"
+    },
+    {
+      "id": "stars_by_referrer",
+      "title": "Stars by top referrer of the day",
+      "type": "pie",
+      "x": "top_referrer",
+      "y": "stars",
+      "sql": "SELECT\n  top_referrer,\n  sum(new_stars) AS stars\nFROM github_stars\nGROUP BY 1\nORDER BY 2 DESC"
+    },
+    {
+      "id": "top_days",
+      "title": "Biggest star days",
+      "type": "table",
+      "limit": 15,
+      "span": 2,
+      "sql": "SELECT\n  date,\n  new_stars,\n  new_forks,\n  page_views,\n  unique_visitors,\n  top_referrer\nFROM github_stars\nORDER BY new_stars DESC\nLIMIT 15"
+    }
+  ]
+}
