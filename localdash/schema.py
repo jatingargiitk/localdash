@@ -19,6 +19,7 @@ TEMPORAL_PREFIXES = ("DATE", "TIMESTAMP", "TIME")
 TOP_VALUES_MAX_DISTINCT = 12
 SAMPLE_ROWS = 5
 MAX_STR = 80
+EXACT_DISTINCT_MAX_ROWS = 2_000_000
 
 
 def is_numeric(dtype: str) -> bool:
@@ -43,12 +44,13 @@ def introspect_table(source: Source, table: str, samples: bool = True) -> dict[s
     columns = [{"name": r[0], "type": r[1]} for r in described]
     row_count = con.execute(f"SELECT count(*) FROM {qt}").fetchone()[0]
 
-    # one pass for ranges, null counts and approximate distinct counts
+    # one pass for ranges, null counts and distinct counts (approximate on big tables)
+    distinct_fn = "approx_count_distinct({})" if row_count > EXACT_DISTINCT_MAX_ROWS else "count(DISTINCT {})"
     exprs = []
     for c in columns:
         qc = quote_ident(c["name"])
         exprs.append(f"count(*) - count({qc})")
-        exprs.append(f"approx_count_distinct({qc})")
+        exprs.append(distinct_fn.format(qc))
         if is_numeric(c["type"]) or is_temporal(c["type"]):
             exprs.append(f"min({qc})")
             exprs.append(f"max({qc})")

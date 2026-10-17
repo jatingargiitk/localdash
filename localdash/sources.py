@@ -188,10 +188,10 @@ def _connect_attached(con, target: str, kind: str) -> Source:
         con.execute(f"CREATE VIEW {quote_ident(name)} AS SELECT * FROM {qualified}")
         tables.append(name)
         origins[name] = f"main.{quote_ident(name)}"
-    location = _redact(target) if kind == "postgres" else target
+    location = redact(target) if kind == "postgres" else target
     return Source(con=con, tables=tables, kind=kind, location=location, origins=origins)
 
 
-def _redact(conn: str) -> str:
+def redact(conn: str) -> str:
     conn = re.sub(r"(://[^:/@]+):[^@]+@", r"\1:***@", conn)
     return re.sub(r"(password=)\S+", r"\1***", conn)

@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
+from typing import Optional
 
 import typer
 
 from . import __version__
+from .query import Runner
+from .render import render_to_file, run_panel
 from .schema import introspect
 from .sources import SourceError, connect
+from .spec import SpecError, load_spec, spec_errors
 
 app = typer.Typer(
     add_completion=False,
@@ -45,6 +50,113 @@ def schema(
         sys.stdout.write("\n")
     finally:
         src.close()
+
+
+def _open_spec(spec_path: str, source_override: str | None = None):
+    try:
+        spec = load_spec(spec_path)
+    except FileNotFoundError:
+        _fail(f"spec not found: {spec_path}")
+    except SpecError as e:
+        _fail("invalid spec:\n  - " + "\n  - ".join(e.errors))
+    source = source_override or spec.source
+    if not source:
+        _fail("the spec has no 'source'; pass --source")
+    try:
+        src = connect(source, base_dir=Path(spec_path).resolve().parent)
+    except Exception as e:
+        _fail(str(e))
+    return spec, src
+
+
+def _report(spec, results: dict) -> int:
+    failed = 0
+    for p in spec.panels:
+        res = results[p.id]
+        if res.get("error"):
+            failed += 1
+            typer.secho(f"  ✗ {p.id}: {res['error']}", fg=typer.colors.RED, err=True)
+        else:
+            n = len(res["rows"])
+            typer.secho(f"  ✓ {p.id} ({p.type}, {n}{'+' if res['truncated'] else ''} rows, {res['ms']} ms)", err=True)
+    return failed
+
+
+@app.command()
+def render(
+    spec_path: str = typer.Argument(..., metavar="SPEC", help="Path to a dashboard JSON spec."),
+    out: Optional[str] = typer.Option(None, "-o", "--out", help="Output HTML file (default: SPEC with .html)."),
+    theme: str = typer.Option("dark", "--theme", help="dark or light."),
+    offline: bool = typer.Option(False, "--offline", help="Inline Chart.js so the file works with no internet."),
+    source: Optional[str] = typer.Option(None, "--source", help="Override the spec's data source."),
+    strict: bool = typer.Option(False, "--strict", help="Exit non-zero if any panel fails."),
+) -> None:
+    """Render a dashboard from an existing spec. No model call."""
+    spec, src = _open_spec(spec_path, source)
+    out = out or str(Path(spec_path).with_suffix(".html"))
+    try:
+        results = render_to_file(spec, Runner(src), out, theme=theme, offline=offline)
+    except ValueError as e:
+        _fail(str(e))
+    finally:
+        src.close()
+    failed = _report(spec, results)
+    typer.secho(f"wrote {out}", fg=typer.colors.GREEN, err=True)
+    if failed and strict:
+        raise typer.Exit(2)
+
+
+@app.command()
+def validate(
+    spec_path: str = typer.Argument(..., metavar="SPEC", help="Path to a dashboard JSON spec."),
+    source: Optional[str] = typer.Option(None, "--source", help="Override the spec's data source."),
+) -> None:
+    """Check a spec: structure, then run every panel's SQL. Prints JSON; exits 2 if anything fails."""
+    try:
+        data = json.loads(Path(spec_path).read_text())
+    except (OSError, json.JSONDecodeError) as e:
+        _fail(str(e))
+    errs = spec_errors(data)
+    if errs:
+        json.dump({"ok": False, "spec_errors": errs, "panels": {}}, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+        raise typer.Exit(2)
+    spec, src = _open_spec(spec_path, source)
+    try:
+        runner = Runner(src)
+        report = {}
+        for p in spec.panels:
+            res = run_panel(runner, p)
+            report[p.id] = (
+                {"ok": False, "error": res["error"], "columns": res.get("columns")}
+                if res.get("error")
+                else {"ok": True, "columns": res["columns"], "rows": len(res["rows"]), "first_rows": res["rows"][:3]}
+            )
+        known = {c for cols in runner.table_columns.values() for c in cols}
+        filter_errs = [f"filter column {f.column!r} not found in any table" for f in spec.filters if f.column not in known]
+    finally:
+        src.close()
+    ok = all(r["ok"] for r in report.values()) and not filter_errs
+    json.dump({"ok": ok, "spec_errors": filter_errs, "panels": report}, sys.stdout, indent=2, default=str)
+    sys.stdout.write("\n")
+    if not ok:
+        raise typer.Exit(2)
+
+
+@app.command()
+def query(
+    source: str = typer.Argument(..., help="Data source."),
+    sql: str = typer.Argument(..., help="DuckDB SQL to run."),
+    limit: int = typer.Option(50, "--limit", help="Max rows to print."),
+) -> None:
+    """Run ad-hoc SQL against SOURCE and print JSON (handy when writing specs by hand)."""
+    try:
+        src = connect(source)
+        res = Runner(src).run(sql, limit=limit)
+    except Exception as e:
+        _fail(str(e).split("\n\nLINE")[0])
+    json.dump(res, sys.stdout, indent=2, default=str)
+    sys.stdout.write("\n")
 
 
 if __name__ == "__main__":
