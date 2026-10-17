@@ -66,11 +66,28 @@ def _clean_error(e: Exception) -> str:
     return msg.split("\n\nLINE")[0].strip() if msg else type(e).__name__
 
 
-def layout(spec: Spec) -> tuple[list[Panel], list[Panel]]:
-    """KPIs go on the top row; everything else flows into the card grid in spec order."""
+def layout(spec: Spec) -> tuple[list[Panel], list[Panel], dict[str, int]]:
+    """KPIs go on the top row; the rest flows into a 2-column grid in spec order.
+
+    Tables default to full width. A half-width card that would sit alone on its
+    row (before a full-width card, or at the end) is stretched to full width so
+    the grid never has holes. Returns (kpis, rest, spans).
+    """
     kpis = [p for p in spec.panels if p.type == "kpi"]
     rest = [p for p in spec.panels if p.type != "kpi"]
-    return kpis, rest
+    spans = {p.id: p.span or (2 if p.type == "table" else 1) for p in rest}
+    col, last_half = 0, None
+    for p in rest:
+        if spans[p.id] == 2:
+            if col == 1 and last_half and not last_half.span:
+                spans[last_half.id] = 2
+            col = 0
+        else:
+            col = (col + 1) % 2
+            last_half = p if col == 1 else None
+    if col == 1 and last_half and not last_half.span:
+        spans[last_half.id] = 2
+    return kpis, rest, spans
 
 
 def default_source_label(source: str | None) -> str:
@@ -101,7 +118,7 @@ def render_html(
     if theme not in THEMES:
         raise ValueError(f"theme must be one of {THEMES}")
     generated_at = generated_at or dt.datetime.now().astimezone()
-    kpis, rest = layout(spec)
+    kpis, rest, spans = layout(spec)
     panels = []
     for p in kpis + rest:
         d = p.to_dict()
@@ -129,6 +146,7 @@ def render_html(
         spec=spec,
         kpis=kpis,
         rest=rest,
+        spans=spans,
         payload=payload,
         theme=theme,
         mode=mode,

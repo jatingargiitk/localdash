@@ -83,6 +83,23 @@ def test_render_contains_every_panel_and_sql(csv_path):
     assert CHARTJS_CDN in out
 
 
+def test_layout_fills_grid_holes():
+    from localdash.render import layout
+
+    def mk(*types):
+        return spec_from_dict({"title": "t", "panels": [
+            {"id": f"p{i}", "title": "x", "type": t, "sql": "select 1", "x": "a", "y": ["b"], "value": "a"}
+            for i, t in enumerate(types)]})
+
+    kpis, rest, spans = layout(mk("line", "kpi", "bar", "pie", "table"))
+    assert [p.id for p in kpis] == ["p1"]
+    assert spans == {"p0": 1, "p2": 1, "p3": 2, "p4": 2}  # pie would sit alone before the table
+    _, _, spans = layout(mk("line", "bar"))
+    assert spans == {"p0": 1, "p1": 1}
+    _, _, spans = layout(mk("line"))
+    assert spans == {"p0": 2}
+
+
 def test_offline_inlines_chartjs(csv_path):
     spec = make_spec(csv_path)
     out = render_html(spec, {}, offline=True, theme="light")

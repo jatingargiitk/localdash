@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -10,10 +11,12 @@ from typing import Optional
 import typer
 
 from . import __version__
+from .llm import LLMConfig, LLMError, complete
+from .planner import PlanError, plan
 from .query import Runner
 from .render import render_to_file, run_panel
 from .schema import introspect
-from .sources import SourceError, connect
+from .sources import SourceError, connect, is_postgres
 from .spec import SpecError, load_spec, spec_errors
 
 app = typer.Typer(
@@ -141,6 +144,64 @@ def validate(
     sys.stdout.write("\n")
     if not ok:
         raise typer.Exit(2)
+
+
+def _llm(provider: str | None, model: str | None):
+    try:
+        config = LLMConfig.from_env(provider, model)
+    except LLMError as e:
+        _fail(str(e))
+    return config, (lambda messages: complete(messages, config))
+
+
+def _spec_source(source: str, spec_dir: Path) -> str:
+    """Store file sources relative to the spec so the folder can be moved or shared."""
+    if is_postgres(source) or source.startswith("sqlite:") or not Path(source).exists():
+        return source
+    return os.path.relpath(Path(source).resolve(), spec_dir.resolve())
+
+
+def _log(msg: str) -> None:
+    typer.secho(msg, err=True, fg=typer.colors.RED if "✗" in msg else None)
+
+
+@app.command()
+def build(
+    source: str = typer.Argument(..., help="Data source (file, directory, SQLite/DuckDB file, postgres:// URL)."),
+    request: str = typer.Argument(..., help='What you want to see, e.g. "weekly signups and revenue by plan".'),
+    out: str = typer.Option("dashboard.html", "-o", "--out", help="Output HTML; the spec is saved next to it as .json."),
+    provider: Optional[str] = typer.Option(None, "--provider", help="ollama, openrouter, openai or anthropic (default: $LOCALDASH_PROVIDER)."),
+    model: Optional[str] = typer.Option(None, "--model", help="Model name (default: $LOCALDASH_MODEL or provider default)."),
+    theme: str = typer.Option("dark", "--theme", help="dark or light."),
+    offline: bool = typer.Option(False, "--offline", help="Inline Chart.js so the file works with no internet."),
+    no_samples: bool = typer.Option(False, "--no-samples", help="Send only the schema to the model, no sample rows or values."),
+    retries: int = typer.Option(3, "--retries", help="Fix attempts per failing panel."),
+) -> None:
+    """Plan a dashboard with a model, save the spec next to the HTML, render it."""
+    config, llm = _llm(provider, model)
+    try:
+        src = connect(source)
+    except Exception as e:
+        _fail(str(e))
+    out_path = Path(out)
+    spec_path = out_path.with_suffix(".json")
+    try:
+        summary = introspect(src, samples=not no_samples)
+        runner = Runner(src)
+        typer.secho(f"planning with {config.label} ({len(src.tables)} table{'s' if len(src.tables) != 1 else ''})", err=True, bold=True)
+        try:
+            spec, warnings = plan(runner, summary, request, llm, max_retries=retries, log=_log,
+                                  source=_spec_source(source, out_path.parent), model_label=config.label)
+        except (PlanError, LLMError) as e:
+            _fail(str(e))
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        spec.save(spec_path)
+        render_to_file(spec, runner, out_path, theme=theme, offline=offline)
+    finally:
+        src.close()
+    for w in warnings:
+        typer.secho(f"warning: {w}", fg=typer.colors.YELLOW, err=True)
+    typer.secho(f"wrote {spec_path} and {out_path} ({len(spec.panels)} panels)", fg=typer.colors.GREEN, err=True)
 
 
 @app.command()

@@ -169,7 +169,7 @@ footer code { font-family: var(--mono); color: var(--muted); }
 
   <section class="grid">
     {% for p in rest %}
-    {% set wide = (p.span == 2) or (p.type == 'table' and p.span != 1) %}
+    {% set wide = spans[p.id] == 2 %}
     <article class="card {{ p.type }}{{ ' span-2' if wide }}" id="panel-{{ p.id }}" data-panel="{{ p.id }}">
       <div class="card-h">
         <div><h3 class="card-t">{{ p.title }}</h3>{% if p.description %}<p class="card-d">{{ p.description }}</p>{% endif %}</div>
@@ -213,6 +213,9 @@ const theme = () => document.documentElement.dataset.theme;
 const colorSlots = new Map();
 /* the same series label ("pro", "US", ...) gets the same color in every panel */
 const colorFor = key => { key = String(key); if (!colorSlots.has(key)) colorSlots.set(key, colorSlots.size); return PALETTE[theme()][colorSlots.get(key) % 10]; };
+/* single-series panels rotate through the strongest colors only */
+const soloSlots = new Map();
+const soloColor = id => { if (!soloSlots.has(id)) soloSlots.set(id, soloSlots.size); return PALETTE[theme()][soloSlots.get(id) % 6]; };
 const alpha = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
 
 /* ---------- formatting ---------- */
@@ -234,7 +237,7 @@ function makeFormatter(fmt, values, big) {
       case "currency": return (v < 0 ? "-$" : "$") + (big || Math.abs(v) >= 1e4 ? compact(Math.abs(v)) : Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 2 }));
       case "percent": return (v * pctScale).toLocaleString(undefined, { maximumFractionDigits: 1 }) + "%";
       case "compact": return compact(v);
-      default: return big && Math.abs(v) >= 1e5 ? compact(v) : v.toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 10 ? 2 : 1 });
+      default: return big && Math.abs(v) >= (big === true ? 1e5 : big) ? compact(v) : v.toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 10 ? 2 : 1 });
     }
   };
 }
@@ -298,19 +301,20 @@ function xyData(p, res) {
   if (si !== undefined) {
     const groups = new Map();
     rows.forEach(r => { const s = r[si] == null ? "(null)" : String(r[si]); if (!groups.has(s)) groups.set(s, []); groups.get(s).push(r); });
-    for (const [s, grp] of groups) for (const y of ys) {
+    const names = [...groups.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    for (const s of names) for (const y of ys) { const grp = groups.get(s);
       const data = blank(); grp.forEach(r => { data[pos.get(r[xi])] = r[ci[y]]; });
       sets.push({ label: ys.length > 1 ? `${s} · ${y}` : s, key: ys.length > 1 ? `${s} · ${y}` : s, data });
     }
   } else {
-    for (const y of ys) { const data = blank(); rows.forEach(r => { data[pos.get(r[xi])] = r[ci[y]]; }); sets.push({ label: y, key: ys.length > 1 ? y : p.id, data }); }
+    for (const y of ys) { const data = blank(); rows.forEach(r => { data[pos.get(r[xi])] = r[ci[y]]; }); sets.push({ label: y, key: ys.length > 1 ? y : undefined, solo: ys.length > 1 ? undefined : p.id, data }); }
   }
   return { labels, sets };
 }
 function styleSets(p, sets) {
   return sets.map(s => {
-    const c = colorFor(s.key ?? s.label);
-    const { key, ...rest } = s;
+    const c = s.solo ? soloColor(s.solo) : colorFor(s.key ?? s.label);
+    const { key, solo, ...rest } = s;
     const base = { ...rest, borderColor: c, backgroundColor: c };
     if (p.type === "line" || p.type === "area") {
       return { ...base, borderWidth: 2, tension: .32, pointRadius: s.data.length > 40 ? 0 : 2.5, pointHoverRadius: 4, spanGaps: true,
@@ -321,11 +325,12 @@ function styleSets(p, sets) {
     return { ...base, borderRadius: p.type === "stacked_bar" ? 3 : 6, borderSkipped: false, maxBarThickness: 46, backgroundColor: alpha(c, .88) };
   });
 }
-function baseOptions(p, fmt, horizontal) {
+function baseOptions(p, fmt, horizontal, axisFmt) {
   const grid = css("--grid"), muted = css("--muted");
-  const stacked = p.type === "stacked_bar" || (p.type === "area" && false);
+  const stacked = p.type === "stacked_bar";
+  axisFmt = axisFmt || fmt;
   const valueAxis = { beginAtZero: p.type !== "scatter", stacked: stacked || undefined, grid: { color: grid, drawTicks: false }, border: { display: false },
-    ticks: { color: muted, padding: 8, maxTicksLimit: 6, callback: v => fmt(v) } };
+    ticks: { color: muted, padding: 8, maxTicksLimit: 6, callback: v => axisFmt(v) } };
   const catAxis = { stacked: stacked || undefined, grid: { display: false }, border: { color: grid }, ticks: { color: muted, maxRotation: 0, autoSkipPadding: 18, padding: 6 } };
   return {
     responsive: true, maintainAspectRatio: false, animation: { duration: 450 },
@@ -380,7 +385,7 @@ function chartConfig(p, res) {
   const categorical = !dl && !labels.every(isNum);
   const avgLen = labels.reduce((a, l) => a + String(l).length, 0) / Math.max(1, labels.length);
   const horizontal = (p.type === "bar" || p.type === "stacked_bar") && categorical && labels.length <= 20 && (avgLen > 7 || labels.length > 12);
-  const opts = baseOptions(p, fmt, horizontal);
+  const opts = baseOptions(p, fmt, horizontal, makeFormatter(p.format, sets.flatMap(s => s.data), 1e4));
   opts.plugins.legend.display = sets.length > 1;
   const cat = horizontal ? opts.scales.y : opts.scales.x;
   if (categorical && labels.length <= 20) cat.ticks.autoSkip = false;
