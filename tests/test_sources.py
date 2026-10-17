@@ -76,6 +76,13 @@ def test_limit_preserves_order(csv_path):
     assert res["truncated"]
 
 
+def test_big_ints_survive_json():
+    from localdash.query import to_jsonable
+
+    assert to_jsonable(1791283177909916749) == "1791283177909916749"
+    assert to_jsonable(42) == 42
+
+
 def test_table_name_for():
     assert table_name_for("data/My Sales-2024.csv") == "my_sales_2024"
     assert table_name_for("2024.parquet") == "t_2024"

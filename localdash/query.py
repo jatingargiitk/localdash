@@ -27,8 +27,10 @@ DEFAULT_ROW_CAP = 5000
 
 
 def to_jsonable(value: Any) -> Any:
-    if value is None or isinstance(value, (bool, int, str)):
+    if value is None or isinstance(value, (bool, str)):
         return value
+    if isinstance(value, int):
+        return value if abs(value) <= 2**53 else str(value)  # JS numbers lose precision past 2^53
     if isinstance(value, float):
         return None if math.isnan(value) or math.isinf(value) else value
     if isinstance(value, decimal.Decimal):
