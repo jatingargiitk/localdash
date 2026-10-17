@@ -13,6 +13,7 @@ import typer
 from . import __version__
 from .llm import LLMConfig, LLMError, complete
 from .planner import PlanError, plan
+from .planner import edit as edit_spec
 from .query import Runner
 from .render import render_to_file, run_panel
 from .schema import introspect
@@ -202,6 +203,52 @@ def build(
     for w in warnings:
         typer.secho(f"warning: {w}", fg=typer.colors.YELLOW, err=True)
     typer.secho(f"wrote {spec_path} and {out_path} ({len(spec.panels)} panels)", fg=typer.colors.GREEN, err=True)
+
+
+@app.command()
+def edit(
+    spec_path: str = typer.Argument(..., metavar="SPEC", help="Path to a dashboard JSON spec."),
+    change: str = typer.Argument(..., help='e.g. "add a churn panel" or "make signups a bar chart".'),
+    out: Optional[str] = typer.Option(None, "-o", "--out", help="Output HTML (default: SPEC with .html)."),
+    provider: Optional[str] = typer.Option(None, "--provider", help="ollama, openrouter, openai or anthropic."),
+    model: Optional[str] = typer.Option(None, "--model", help="Model name."),
+    theme: str = typer.Option("dark", "--theme", help="dark or light."),
+    offline: bool = typer.Option(False, "--offline", help="Inline Chart.js so the file works with no internet."),
+    no_samples: bool = typer.Option(False, "--no-samples", help="Send only the schema to the model."),
+    retries: int = typer.Option(3, "--retries", help="Fix attempts per failing panel."),
+) -> None:
+    """Change an existing dashboard in plain English, re-validate every panel, re-render."""
+    config, llm = _llm(provider, model)
+    spec, src = _open_spec(spec_path)
+    out = out or str(Path(spec_path).with_suffix(".html"))
+    try:
+        runner = Runner(src)
+        summary = introspect(src, samples=not no_samples)
+        typer.secho(f"editing with {config.label}", err=True, bold=True)
+        try:
+            new_spec, warnings = edit_spec(runner, summary, spec, change, llm, max_retries=retries, log=_log,
+                                           model_label=config.label)
+        except (PlanError, LLMError) as e:
+            _fail(str(e))
+        backup = Path(spec_path).with_suffix(".json.bak")
+        backup.write_text(Path(spec_path).read_text())
+        new_spec.save(spec_path)
+        render_to_file(new_spec, runner, out, theme=theme, offline=offline)
+    finally:
+        src.close()
+    old = {p.id: p.to_dict() for p in spec.panels}
+    new = {p.id: p.to_dict() for p in new_spec.panels}
+    for pid in new:
+        if pid not in old:
+            typer.secho(f"  + {pid}", fg=typer.colors.GREEN, err=True)
+        elif new[pid] != old[pid]:
+            typer.secho(f"  ~ {pid}", fg=typer.colors.YELLOW, err=True)
+    for pid in old:
+        if pid not in new:
+            typer.secho(f"  - {pid}", fg=typer.colors.RED, err=True)
+    for w in warnings:
+        typer.secho(f"warning: {w}", fg=typer.colors.YELLOW, err=True)
+    typer.secho(f"wrote {spec_path} (previous: {backup}) and {out}", fg=typer.colors.GREEN, err=True)
 
 
 @app.command()

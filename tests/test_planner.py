@@ -123,6 +123,31 @@ def test_prompt_contains_schema_and_request(csv_path):
     assert "weekly signups by plan" in user and "TABLE signups" in user and "created_at: DATE" in user
 
 
+def test_edit_changes_chart_type_and_keeps_metadata(csv_path):
+    from localdash.planner import edit
+    from localdash.spec import spec_from_dict
+
+    runner, summary = setup(csv_path)
+    spec = spec_from_dict({
+        "title": "Signups", "source": "signups.csv", "model": "ollama/old", "refresh_seconds": 30,
+        "panels": [SPEC_WITH_BROKEN_PANEL["panels"][0], dict(FIXED_PANEL, type="line")],
+    })
+    edited = spec.to_dict()
+    edited["panels"][1]["type"] = "bar"
+    edited["panels"].append({"id": "plan_mix", "title": "Plan mix", "type": "pie", "x": "plan", "y": ["n"],
+                             "sql": "SELECT plan, count(*) AS n FROM signups GROUP BY 1"})
+    del edited["source"], edited["model"]
+    llm = FakeLLM(edited)
+    new, warnings = edit(runner, summary, spec, "make revenue by plan a bar chart and add a plan mix pie", llm, model_label="fake/new")
+
+    assert new.panel("by_plan").type == "bar"
+    assert new.panel("plan_mix").type == "pie"
+    assert new.source == "signups.csv" and new.refresh_seconds == 30 and new.model == "fake/new"
+    prompt = llm.calls[0][1]["content"]
+    assert "make revenue by plan a bar chart" in prompt and '"by_plan"' in prompt
+    assert warnings == []
+
+
 def test_extract_json_variants():
     assert extract_json('{"a": 1}') == {"a": 1}
     assert extract_json('Here:\n```json\n{"a": {"b": "}"}}\n```\nthanks') == {"a": {"b": "}"}}
