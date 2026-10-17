@@ -18,7 +18,7 @@ from .query import Runner
 from .render import render_to_file, run_panel
 from .schema import introspect
 from .sources import SourceError, connect, is_postgres
-from .spec import SpecError, load_spec, spec_errors
+from .spec import SPEC_JSON_SCHEMA, SpecError, load_spec, spec_errors
 
 app = typer.Typer(
     add_completion=False,
@@ -278,6 +278,13 @@ def serve(
         _fail("invalid spec:\n  - " + "\n  - ".join(e.errors))
     except Exception as e:
         _fail(str(e))
+
+
+@app.command("spec-schema")
+def spec_schema() -> None:
+    """Print the JSON Schema for dashboard specs."""
+    json.dump(SPEC_JSON_SCHEMA, sys.stdout, indent=2)
+    sys.stdout.write("\n")
 
 
 @app.command()

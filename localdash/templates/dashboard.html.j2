@@ -211,8 +211,20 @@ const PALETTE = {
 };
 const theme = () => document.documentElement.dataset.theme;
 const colorSlots = new Map();
-/* the same series label ("pro", "US", ...) gets the same color in every panel */
-const colorFor = key => { key = String(key); if (!colorSlots.has(key)) colorSlots.set(key, colorSlots.size); return PALETTE[theme()][colorSlots.get(key) % 10]; };
+/* the same series label ("pro", "US", ...) gets the same color in every panel;
+   labels new to the page take the strongest palette slots not already used in this chart */
+function assignColors(keys) {
+  keys = keys.map(String);
+  const used = new Set(keys.filter(k => colorSlots.has(k)).map(k => colorSlots.get(k) % 10));
+  for (const k of keys) {
+    if (colorSlots.has(k)) continue;
+    let slot = 0;
+    while (used.has(slot) && slot < 9) slot++;
+    if (used.has(slot)) slot = colorSlots.size % 10;
+    colorSlots.set(k, slot); used.add(slot);
+  }
+}
+const colorFor = key => { key = String(key); if (!colorSlots.has(key)) assignColors([key]); return PALETTE[theme()][colorSlots.get(key) % 10]; };
 /* single-series panels rotate through the strongest colors only */
 const soloSlots = new Map();
 const soloColor = id => { if (!soloSlots.has(id)) soloSlots.set(id, soloSlots.size); return PALETTE[theme()][soloSlots.get(id) % 6]; };
@@ -312,6 +324,7 @@ function xyData(p, res) {
   return { labels, sets };
 }
 function styleSets(p, sets) {
+  assignColors(sets.filter(s => !s.solo).map(s => s.key ?? s.label));
   return sets.map(s => {
     const c = s.solo ? soloColor(s.solo) : colorFor(s.key ?? s.label);
     const { key, solo, ...rest } = s;
@@ -352,6 +365,7 @@ function chartConfig(p, res) {
     const fmt = makeFormatter(p.format, vals);
     const total = vals.filter(isNum).reduce((a, b) => a + b, 0);
     const labels = rows.map(r => r[ci[p.x]] == null ? "(null)" : String(r[ci[p.x]]));
+    assignColors(labels);
     const centerText = { id: "ldCenter", afterDraw(ch) {
       const a = ch.chartArea, m = ch.getDatasetMeta(0).data[0]; if (!a || !m) return;
       const g = ch.ctx; g.save(); g.textAlign = "center"; g.textBaseline = "middle";
@@ -369,7 +383,7 @@ function chartConfig(p, res) {
     const ci = columnsOf(res), rows = res.rows || [];
     const groups = new Map();
     rows.forEach(r => { const s = p.series ? String(r[ci[p.series]]) : p.y[0]; if (!groups.has(s)) groups.set(s, []); groups.get(s).push({ x: r[ci[p.x]], y: r[ci[p.y[0]]] }); });
-    const sets = styleSets(p, [...groups].map(([label, data]) => ({ label, data })));
+    const sets = styleSets(p, [...groups].map(([label, data]) => p.series ? { label, data } : { label, data, solo: p.id }));
     const fmt = makeFormatter(p.format, rows.map(r => r[ci[p.y[0]]]));
     const opts = baseOptions(p, fmt, false);
     opts.scales.x = { type: "linear", grid: { color: css("--grid") }, border: { display: false }, ticks: { color: muted, callback: v => compact(v) },
