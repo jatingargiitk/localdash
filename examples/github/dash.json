@@ -1,7 +1,7 @@
 {
   "title": "Repo growth",
   "description": "Daily GitHub activity for the past year: stars, forks, issues and traffic. KPIs compare the last 30 days with the 30 days before.",
-  "source": "../data/github_stars.csv",
+  "source": "../github_stars.csv",
   "refresh_seconds": 300,
   "model": "claude-code",
   "filters": [

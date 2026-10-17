@@ -1,7 +1,7 @@
 {
   "title": "Creator Analytics Dashboard",
   "description": "Monitor key metrics and trends for your content creator activities.",
-  "source": "../data/x_posts.csv",
+  "source": "../x_posts.csv",
   "refresh_seconds": 60,
   "model": "ollama/qwen2.5-coder:7b",
   "filters": [

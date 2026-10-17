@@ -1,7 +1,7 @@
 {
   "title": "SaaS Health Overview",
   "description": "MRR, paying customers, signups and churn, with plan and channel breakdowns. MRR history is reconstructed from signup and churn dates, using each customer's current MRR value.",
-  "source": "../data/saas.csv",
+  "source": "../saas.csv",
   "refresh_seconds": 60,
   "model": "openrouter/anthropic/claude-sonnet-5.5",
   "filters": [

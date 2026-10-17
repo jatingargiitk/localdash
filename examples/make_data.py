@@ -1,6 +1,6 @@
 """Generate the demo datasets. Synthetic, deterministic, no real data.
 
-    python examples/make_data.py            # writes examples/data/*.csv
+    python examples/make_data.py            # writes examples/*.csv
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import math
 import random
 from pathlib import Path
 
-OUT = Path(__file__).parent / "data"
+OUT = Path(__file__).parent
 END = dt.date(2026, 10, 15)
 
 
