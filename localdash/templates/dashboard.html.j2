@@ -499,9 +499,10 @@ if (/(^|[#&?])sql(=1)?($|&)/.test(location.hash.slice(1) + "&" + location.search
 if (LD.mode === "serve") {
   const state = {};
   const qs = () => { const u = new URLSearchParams(); for (const [k, v] of Object.entries(state)) { if (typeof v === "string" && v) u.set("f." + k, v); else if (v && typeof v === "object") { if (v.from) u.set("f." + k + ".from", v.from); if (v.to) u.set("f." + k + ".to", v.to); } } const s = u.toString(); return s ? "?" + s : ""; };
-  let busy = false;
+  let busy = false, pending = false;
   async function refresh() {
-    if (busy) return; busy = true;
+    if (busy) { pending = true; return; }
+    busy = true;
     try {
       const q = qs();
       await Promise.all(LD.panels.map(async p => {
@@ -513,7 +514,10 @@ if (LD.mode === "serve") {
         } catch (e) { showError(p, "Could not reach localdash server: " + e.message); }
       }));
       stamp(new Date());
-    } finally { busy = false; }
+    } finally {
+      busy = false;
+      if (pending) { pending = false; refresh(); }
+    }
   }
   const btn = $("#ld-refresh"); if (btn) btn.addEventListener("click", refresh);
   if (LD.refresh_seconds > 0) setInterval(refresh, LD.refresh_seconds * 1000);

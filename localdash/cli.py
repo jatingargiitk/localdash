@@ -205,6 +205,35 @@ def build(
 
 
 @app.command()
+def serve(
+    spec_path: str = typer.Argument(..., metavar="SPEC", help="Path to a dashboard JSON spec."),
+    port: int = typer.Option(8765, "--port", "-p", help="Port (the next free one is used if taken)."),
+    host: str = typer.Option("127.0.0.1", "--host", help="Interface to bind. Default is local-only."),
+    no_open: bool = typer.Option(False, "--no-open", help="Don't open a browser."),
+    theme: str = typer.Option("dark", "--theme", help="dark or light."),
+    refresh: Optional[int] = typer.Option(None, "--refresh", help="Override refresh_seconds."),
+    source: Optional[str] = typer.Option(None, "--source", help="Override the spec's data source."),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Log every request."),
+) -> None:
+    """Serve a live dashboard that re-runs its queries every refresh_seconds."""
+    from .server import serve as run_server
+
+    def ready(url, dash):
+        typer.secho(f"localdash serving {dash.spec.title!r} at {url}", fg=typer.colors.GREEN, bold=True, err=True)
+        typer.secho(f"  {len(dash.spec.panels)} panels · refresh every {dash.spec.refresh_seconds}s · Ctrl+C to stop", err=True)
+
+    try:
+        run_server(spec_path, host=host, port=port, open_browser=not no_open, theme=theme,
+                   source_override=source, refresh_override=refresh, quiet=not verbose, on_ready=ready)
+    except FileNotFoundError:
+        _fail(f"spec not found: {spec_path}")
+    except SpecError as e:
+        _fail("invalid spec:\n  - " + "\n  - ".join(e.errors))
+    except Exception as e:
+        _fail(str(e))
+
+
+@app.command()
 def query(
     source: str = typer.Argument(..., help="Data source."),
     sql: str = typer.Argument(..., help="DuckDB SQL to run."),

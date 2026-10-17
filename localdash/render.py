@@ -114,6 +114,7 @@ def render_html(
     generated_at: dt.datetime | None = None,
     filter_options: dict[str, Any] | None = None,
     spec_version: str | None = None,
+    chartjs_url: str | None = None,
 ) -> str:
     if theme not in THEMES:
         raise ValueError(f"theme must be one of {THEMES}")
@@ -152,7 +153,7 @@ def render_html(
         mode=mode,
         offline=offline,
         chartjs_inline=chartjs_source() if offline else None,
-        chartjs_cdn=CHARTJS_CDN,
+        chartjs_cdn=chartjs_url or CHARTJS_CDN,
         version=__version__,
     )
 
