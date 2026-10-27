@@ -13,7 +13,7 @@ a Claude Code skill.
 ## Quickstart
 
 ```bash
-pip install localdash        # until the first PyPI release: git clone this repo && pip install -e .
+pip install localdash
 export LOCALDASH_PROVIDER=openrouter OPENROUTER_API_KEY=sk-or-...
 localdash build examples/saas.csv "SaaS health overview" -o saas.html
 ```
@@ -139,6 +139,10 @@ Useful flags: `--theme light`, `--offline`, `--no-samples`, `--provider`, `--mod
 **Sources:** `data.csv`, `*.tsv`, `*.parquet`, `*.json`/`*.ndjson`, globs like
 `'logs/*.parquet'` (one table), a directory of files (one table per file),
 `app.sqlite`/`.db`, `warehouse.duckdb`, `postgres://user:pass@host/db`.
+
+**Note:** The first time you use SQLite or Postgres sources, DuckDB will download its
+`sqlite` or `postgres` extension from the internet (about 5-10 MB, cached locally).
+Subsequent uses are fully offline.
 
 ## Configuration
 

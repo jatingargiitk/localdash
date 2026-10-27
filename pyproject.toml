@@ -9,12 +9,18 @@ description = "Turn any CSV or database into a live dashboard. Local, free, any 
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-authors = [{ name = "localdash contributors" }]
-keywords = ["dashboard", "duckdb", "sql", "llm", "analytics", "csv", "ollama"]
+authors = [{ name = "Jatin Garg" }]
+keywords = ["dashboard", "duckdb", "csv", "sql", "llm", "ollama", "claude-code"]
 classifiers = [
-  "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: MIT License",
+  "Development Status :: 3 - Alpha",
   "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Database",
   "Topic :: Scientific/Engineering :: Visualization",
 ]
@@ -27,6 +33,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+
+[project.urls]
+Homepage = "https://github.com/jatingargiitk/localdash"
+Repository = "https://github.com/jatingargiitk/localdash"
+Issues = "https://github.com/jatingargiitk/localdash/issues"
 
 [project.scripts]
 localdash = "localdash.cli:app"
