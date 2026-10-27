@@ -45,9 +45,5 @@ localdash = "localdash.cli:app"
 [tool.hatch.build.targets.wheel]
 packages = ["localdash"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"localdash/templates" = "localdash/templates"
-"localdash/vendor" = "localdash/vendor"
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
